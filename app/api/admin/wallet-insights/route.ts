@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
         .in('user_address', variants)
         .limit(1),
       // Explicit column selection to avoid exposing sensitive future columns
-      supabaseService.from('user_referrals').select('id, user_address, referral_code, referral_count, referred_by, created_at, updated_at').in('user_address', variants).limit(1),
+      supabaseService.from('user_referrals').select('user_address, referral_code, referral_count, referred_by, created_at').in('user_address', variants).limit(1),
       supabaseService
         .from('user_sessions')
         .select('id, network, started_at, last_ping_at, ended_at')
