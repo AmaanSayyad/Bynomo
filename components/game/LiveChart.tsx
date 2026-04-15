@@ -98,7 +98,7 @@ const ASSET_CONFIG: Record<AssetType, { name: string; symbol: string; pair: stri
   SHIB: { name: 'Shiba Inu', symbol: 'SHIB', pair: 'SHIB/USD', logo: 'https://assets.coingecko.com/coins/images/11939/standard/shiba.png', category: 'Crypto', decimals: 8 },
   ATOM: { name: 'Cosmos', symbol: 'ATOM', pair: 'ATOM/USD', logo: 'https://assets.coingecko.com/coins/images/1481/standard/cosmos_hub.png', category: 'Crypto', decimals: 2 },
   RENDER: { name: 'Render', symbol: 'RENDER', pair: 'RENDER/USD', logo: 'https://assets.coingecko.com/coins/images/11636/standard/rndr.png', category: 'Crypto', decimals: 2 },
-  TAO: { name: 'Bittensor', symbol: 'TAO', pair: 'TAO/USD', logo: 'https://assets.coingecko.com/coins/images/31120/standard/tao.png', category: 'Crypto', decimals: 2 },
+  TAO: { name: 'Bittensor', symbol: 'TAO', pair: 'TAO/USD', logo: '/logos/bittensor-tao-logo.png', category: 'Crypto', decimals: 2 },
   INJ: { name: 'Injective', symbol: 'INJ', pair: 'INJ/USD', logo: 'https://assets.coingecko.com/coins/images/12882/standard/Secondary_Symbol.png', category: 'Crypto', decimals: 2 },
   KAS: { name: 'Kaspa', symbol: 'KAS', pair: 'KAS/USD', logo: '/logos/kaspa-kas-logo.png', category: 'Crypto', decimals: 4 },
   FET: { name: 'Fetch.ai', symbol: 'FET', pair: 'FET/USD', logo: '/logos/artificial-superintelligence-alliance-fet-logo.png', category: 'Crypto', decimals: 3 },
@@ -117,7 +117,7 @@ const ASSET_CONFIG: Record<AssetType, { name: string; symbol: string; pair: stri
   THETA: { name: 'Theta Network', symbol: 'THETA', pair: 'THETA/USD', logo: '/logos/theta-network-theta-logo.png', category: 'Crypto', decimals: 3 },
   ALGO: { name: 'Algorand', symbol: 'ALGO', pair: 'ALGO/USD', logo: 'https://assets.coingecko.com/coins/images/4380/standard/download.png', category: 'Crypto', decimals: 4 },
   EGLD: { name: 'MultiversX', symbol: 'EGLD', pair: 'EGLD/USD', logo: '/logos/multiversx-egld-egld-logo.png', category: 'Crypto', decimals: 2 },
-  FLOW: { name: 'Flow', symbol: 'FLOW', pair: 'FLOW/USD', logo: 'https://assets.coingecko.com/coins/images/13446/standard/flow.png', category: 'Crypto', decimals: 3 },
+  FLOW: { name: 'Flow', symbol: 'FLOW', pair: 'FLOW/USD', logo: '/logos/flow-logo.png', category: 'Crypto', decimals: 3 },
   
   // Commodities
   WTI: { name: 'Crude Oil WTI', symbol: 'WTI', pair: 'WTI/USD', logo: 'OIL', category: 'Commodities', decimals: 2 },
@@ -306,7 +306,6 @@ const AssetIcon = ({ src, asset, className }: { src: string; asset: string; clas
         alt={asset}
         className={finalImageClass}
         onError={handleImageError}
-        {...(!currentSrc.includes('clearbit') && !currentSrc.includes('google.com') ? { crossOrigin: 'anonymous' } : {})}
       />
     </div>
   );
