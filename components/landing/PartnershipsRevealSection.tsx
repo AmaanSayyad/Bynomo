@@ -29,6 +29,23 @@ export function PartnershipsRevealSection() {
 
   return (
     <div className="w-full">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-40px' }}
+        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        className="mx-auto mb-8 max-w-6xl px-4 sm:px-6 lg:px-8"
+      >
+        <div className="overflow-hidden rounded-3xl border border-white/10 bg-black/30">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logos/push-bynomo-partnership-banner.png"
+            alt="Bynomo and Push Chain partnership announcement banner"
+            className="block w-full h-auto"
+          />
+        </div>
+      </motion.div>
+
       {/* Sub-heading */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}

@@ -2,6 +2,7 @@ import { getDefaultConfig } from 'connectkit';
 import { createConfig, http } from 'wagmi';
 import { bsc } from 'wagmi/chains';
 import { defineChain } from 'viem';
+import { getPushExplorerBaseUrl } from '@/lib/push/config';
 
 export const pushChainDonut = defineChain({
     id: 42101,
@@ -11,7 +12,7 @@ export const pushChainDonut = defineChain({
         default: { http: ['https://evm.donut.rpc.push.org'] },
     },
     blockExplorers: {
-        default: { name: 'Push Explorer', url: 'https://explorer.push.org' },
+        default: { name: 'Push Explorer', url: getPushExplorerBaseUrl() },
     },
     testnet: true,
 });

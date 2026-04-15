@@ -7,7 +7,6 @@ import {
   TrendingUp,
   Wallet,
   Users,
-  Trophy,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -180,55 +179,6 @@ function StatCard({
   );
 }
 
-// ─── Win / Loss Bar ───────────────────────────────────────────────────────────
-
-function WinLossBar({ wins, losses, started }: { wins: number; losses: number; started: boolean }) {
-  const total = wins + losses || 1;
-  const winPct = (wins / total) * 100;
-  const [width, setWidth] = useState(0);
-
-  useEffect(() => {
-    if (!started) return;
-    const t = setTimeout(() => setWidth(winPct), 300);
-    return () => clearTimeout(t);
-  }, [started, winPct]);
-
-  return (
-    <div className="space-y-2.5">
-      {/* Bar */}
-      <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-        <div
-          className="absolute left-0 top-0 h-full rounded-full transition-[width] duration-[1400ms] ease-out"
-          style={{
-            width: `${width}%`,
-            background: 'linear-gradient(90deg, #10b981, #6ee7b7)',
-            boxShadow: '0 0 12px rgba(16,185,129,0.6)',
-          }}
-        />
-        <div
-          className="absolute top-0 h-full rounded-full transition-[left,width] duration-[1400ms] ease-out"
-          style={{
-            left: `${width}%`,
-            width: `${100 - width}%`,
-            background: 'linear-gradient(90deg, #ef444455, #ef444433)',
-          }}
-        />
-      </div>
-      {/* Legend */}
-      <div className="flex items-center justify-between text-[11px] font-bold tabular-nums">
-        <span className="flex items-center gap-1.5 text-emerald-400/80">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          {fmt(wins)} wins
-        </span>
-        <span className="flex items-center gap-1.5 text-red-400/70">
-          {fmt(losses)} losses
-          <span className="h-1.5 w-1.5 rounded-full bg-red-400/70" />
-        </span>
-      </div>
-    </div>
-  );
-}
-
 // ─── Section ─────────────────────────────────────────────────────────────────
 
 const CARDS = [
@@ -242,13 +192,13 @@ const CARDS = [
     description: 'Every prediction round resolved on-chain across all supported assets and chains.',
   },
   {
-    key: 'winrate',
-    phase: 'WIN / LOSS',
-    label: 'Platform Win Rate',
+    key: 'paidout',
+    phase: 'LIQUIDITY',
+    label: 'Total Paid Out',
     accent: '#a855f7',
     accentSoft: 'rgba(168,85,247,0.13)',
-    icon: Trophy,
-    description: 'Aggregate win rate across all real-money rounds since genesis.',
+    icon: Wallet,
+    description: 'Cumulative payout volume returned to winning traders across all real-money rounds.',
   },
   {
     key: 'payouts',
@@ -300,7 +250,7 @@ export default function LiveStatsSection() {
 
   const cardValues: Record<string, number> = {
     trades:   s.totalBets,
-    winrate:  Math.round(s.winRate * 10),
+    paidout:  s.totalPaidOut,
     payouts:  s.totalWins,
     deposits: s.totalDeposits,
     wallets:  s.uniqueWallets,
@@ -367,13 +317,7 @@ export default function LiveStatsSection() {
                 description={card.description}
                 started={started}
                 value={cardValues[card.key]}
-                suffix={card.key === 'winrate' ? '%' : ''}
-                decimals={card.key === 'winrate' ? 1 : 0}
-              >
-                {card.key === 'winrate' && (
-                  <WinLossBar wins={s.totalWins} losses={s.totalLosses} started={started} />
-                )}
-              </StatCard>
+              />
             ))}
           </div>
 

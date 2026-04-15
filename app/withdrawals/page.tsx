@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useStore } from '@/lib/store';
+import { getPushExplorerTxUrl } from '@/lib/push/config';
 import { CheckCircle2, Clock3, ExternalLink, Search, XCircle } from 'lucide-react';
 
 type WithdrawalRow = {
@@ -29,7 +30,7 @@ function getExplorerUrl(currency: string, hash: string | null | undefined) {
   if (c === 'XTZ') return `https://tzkt.io/${hash}`;
   if (c === 'NEAR') return `https://nearblocks.io/txns/${hash}`;
   if (c === 'STRK') return `https://starkscan.co/tx/${hash}`;
-  if (c === 'PUSH' || c === 'PC') return `https://explorer-testnet.push.org/tx/${hash}`;
+  if (c === 'PUSH' || c === 'PC') return getPushExplorerTxUrl(hash);
   if (c === 'SOMNIA' || c === 'STT') return `https://shannon-explorer.somnia.network/tx/${hash}`;
   return null;
 }

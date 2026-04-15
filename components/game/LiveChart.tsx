@@ -198,24 +198,31 @@ const AssetIcon = ({ src, asset, className }: { src: string; asset: string; clas
   // Generate all possible logo sources for this asset
   const getAllSources = (): string[] => {
     const sources: string[] = [];
-    
+
     // 1. Original src (if not already a fallback)
     if (src && !src.includes('clearbit') && !src.includes('google.com')) {
       sources.push(src);
     }
 
-    // 2. Clearbit with known domain
+    // 2. Crypto CDNs before Clearbit domain guesses — wrong guesses (e.g. apt.com for APT)
+    //    often return a generic 200 image so onError never fires and the real logo is never tried.
+    const cryptoMapping: Record<string, string> = {
+      RENDER: 'rndr',
+      EGLD: 'egld',
+      KAS: 'kas',
+    };
+    const cryptoSymbol = cryptoMapping[asset] || asset;
+    sources.push(LOGO_SOURCES.COINCAP(cryptoSymbol));
+    sources.push(LOGO_SOURCES.BINANCE(cryptoSymbol));
+
+    // 3. Clearbit + Google when we have a known company domain (stocks / indices)
     const domain = STOCK_DOMAIN_MAP[asset];
     if (domain) {
       sources.push(LOGO_SOURCES.CLEARBIT(domain));
-    }
-
-    // 3. Google Favicon with known domain
-    if (domain) {
       sources.push(LOGO_SOURCES.GOOGLE(domain));
     }
 
-    // 4. Try common domain variations with Clearbit
+    // 4. Speculative domains last (stocks without a map entry; avoid intercepting crypto tickers above)
     if (!domain) {
       const variations = [
         `${asset.toLowerCase()}.com`,
@@ -223,23 +230,13 @@ const AssetIcon = ({ src, asset, className }: { src: string; asset: string; clas
         `${asset.toLowerCase()}.co`,
         `${asset.toLowerCase()}.org`,
       ];
-      variations.forEach(d => {
+      variations.forEach((d) => {
         sources.push(LOGO_SOURCES.CLEARBIT(d));
         sources.push(LOGO_SOURCES.GOOGLE(d));
       });
     }
 
-    // 5. Crypto CDNs (CoinCap, Binance)
-    const cryptoMapping: Record<string, string> = {
-      'RENDER': 'rndr',
-      'EGLD': 'egld',
-      'KAS': 'kas',
-    };
-    const cryptoSymbol = cryptoMapping[asset] || asset;
-    sources.push(LOGO_SOURCES.COINCAP(cryptoSymbol));
-    sources.push(LOGO_SOURCES.BINANCE(cryptoSymbol));
-
-    // 6. Local logo
+    // 5. Local filename convention
     sources.push(LOGO_SOURCES.LOCAL(asset));
 
     return sources;

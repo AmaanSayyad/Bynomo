@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getPushExplorerAddressUrl, getPushExplorerTxUrl } from '@/lib/push/config';
 
 interface CurrencyStat {
     totalBalance: number;
@@ -74,6 +75,8 @@ interface MarketToken {
     price: number;
     category: string;
 }
+
+const MARKET_CATEGORY_ORDER = ['Crypto', 'Forex', 'Metals', 'Stocks', 'Commodities'] as const;
 
 interface BetHistory {
     id: string;
@@ -248,6 +251,9 @@ export default function AdminDashboard() {
             case 'XTZ': return `https://tzkt.io/${hash}`;
             case 'XLM': return `https://stellar.expert/explorer/public/tx/${hash}`;
             case 'STRK': return `https://starkscan.co/tx/${hash}`;
+            case 'PUSH':
+            case 'PC':
+                return getPushExplorerTxUrl(hash);
             default: return null;
         }
     };
@@ -581,10 +587,14 @@ export default function AdminDashboard() {
     };
 
     const marketSummary = useMemo(() => {
-        const summary: Record<string, number> = {};
-        marketTokens.forEach(t => {
-            if (!summary[t.category]) summary[t.category] = 0;
-            summary[t.category]++;
+        const summary = Object.fromEntries(
+            MARKET_CATEGORY_ORDER.map((cat) => [cat, 0]),
+        ) as Record<(typeof MARKET_CATEGORY_ORDER)[number], number>;
+        marketTokens.forEach((t) => {
+            const category = MARKET_CATEGORY_ORDER.includes(t.category as (typeof MARKET_CATEGORY_ORDER)[number])
+                ? (t.category as (typeof MARKET_CATEGORY_ORDER)[number])
+                : 'Crypto';
+            summary[category] += 1;
         });
         return summary;
     }, [marketTokens]);
@@ -635,7 +645,9 @@ export default function AdminDashboard() {
             case 'XLM':   return `https://stellar.expert/explorer/public/account/${addr}`;
             case 'NEAR':  return `https://nearblocks.io/address/${addr}`;
             case 'STRK':  return `https://starkscan.co/contract/${addr}`;
-            case 'PUSH':  return `https://etherscan.io/address/${addr}`;
+            case 'PUSH':
+            case 'PC':
+                return getPushExplorerAddressUrl(address);
             case 'STT':   return `${process.env.NEXT_PUBLIC_SOMNIA_TESTNET_EXPLORER || 'https://shannon-explorer.somnia.network'}/address/${addr}`;
             case 'ONE':   return `${process.env.NEXT_PUBLIC_ONECHAIN_EXPLORER || 'https://explorer-testnet.onechain.one'}/address/${addr}`;
             case 'ZG':    return `${process.env.NEXT_PUBLIC_ZG_MAINNET_EXPLORER || 'https://chainscan.0g.ai'}/address/${addr}`;
@@ -696,7 +708,7 @@ export default function AdminDashboard() {
                         <StatBox
                             title="Avg. time spent"
                             value={fmtAvgSession(stats?.real?.averageSessionSeconds, stats?.real?.sessionSampleCount)}
-                            label={`Mean dwell per session · ${(stats?.real?.sessionSampleCount ?? 0).toLocaleString()} sessions · 30s pings + 90s idle tail`}
+                            label={`Mean dwell per session (last 7d) · ${(stats?.real?.sessionSampleCount ?? 0).toLocaleString()} sessions · 30s pings + 90s idle tail`}
                         />
                     </div>
 
@@ -721,7 +733,7 @@ export default function AdminDashboard() {
                         <StatBox
                             title="Avg. time spent"
                             value={fmtAvgSession(stats?.demo?.averageSessionSeconds, stats?.demo?.sessionSampleCount)}
-                            label={`Mean dwell per session · ${(stats?.demo?.sessionSampleCount ?? 0).toLocaleString()} sessions · demo wallets only`}
+                            label={`Mean dwell per session (last 7d) · ${(stats?.demo?.sessionSampleCount ?? 0).toLocaleString()} sessions · demo wallets only`}
                         />
                     </div>
                 </div>
@@ -1213,6 +1225,16 @@ export default function AdminDashboard() {
                                         </th>
                                     );
                                     const fmt = (n: number, dec = 6) => n.toFixed(dec).replace(/\.?0+$/, '') || '0';
+                                    const fmtJoinedAt = (iso: string) =>
+                                        new Date(iso).toLocaleString('en-GB', {
+                                            day: '2-digit',
+                                            month: 'short',
+                                            year: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit',
+                                            second: '2-digit',
+                                            hour12: false,
+                                        });
                                     return (
                                         <div key="player_pnl" className="space-y-4">
                                             <div className="px-8 pt-6 pb-2 text-xs text-white/30 leading-relaxed">
@@ -1284,7 +1306,7 @@ export default function AdminDashboard() {
                                                                     {/* Joined */}
                                                                     <td className="px-8 py-5 font-mono text-white/40 text-xs whitespace-nowrap">
                                                                         {p.first_deposit_at
-                                                                            ? new Date(p.first_deposit_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                                                                            ? fmtJoinedAt(p.first_deposit_at)
                                                                             : '—'}
                                                                     </td>
                                                                     {/* Deposited */}

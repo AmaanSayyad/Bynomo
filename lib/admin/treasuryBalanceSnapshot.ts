@@ -6,7 +6,7 @@
 import { createPublicClient, formatEther, http, type Chain } from 'viem';
 import { bsc, bscTestnet } from 'viem/chains';
 import { getBNBConfig } from '@/lib/bnb/config';
-import { getPushConfig } from '@/lib/push/config';
+import { getPushConfig, getPushExplorerAddressUrl } from '@/lib/push/config';
 import { getSomniaConfig } from '@/lib/somnia/config';
 import { getZGConfig } from '@/lib/zg/config';
 import { getOneChainConfig } from '@/lib/onechain/config';
@@ -165,7 +165,7 @@ function explorerEvm(kind: 'bsc' | 'push' | 'somnia' | 'zg', addr: string): stri
     case 'bsc':
       return `https://bscscan.com/address/${a}`;
     case 'push':
-      return null;
+      return getPushExplorerAddressUrl(addr);
     case 'somnia': {
       const base = process.env.NEXT_PUBLIC_SOMNIA_TESTNET_EXPLORER || 'https://shannon-explorer.somnia.network';
       return `${base}/address/${a}`;

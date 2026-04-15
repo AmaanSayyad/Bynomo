@@ -350,6 +350,14 @@ export const createGameSlice: StateCreator<any> = (set, get) => ({
         // Simulate bet placement without API
         const fakeBetId = `demo-${Date.now()}`;
 
+        const network = (get() as any).network || 'BNB';
+        const selectedCurrency = (get() as any).selectedCurrency;
+        const currency = resolveHouseLedgerCurrency({
+          network,
+          selectedCurrency,
+          userAddress,
+        });
+
         // Create active bet for tracking
         const activeBet: ActiveBet = {
           id: fakeBetId,
@@ -360,6 +368,8 @@ export const createGameSlice: StateCreator<any> = (set, get) => ({
           direction: direction,
           timestamp: Date.now(),
           status: 'active',
+          network: currency,
+          userAddress,
           ...(gameMode === 'binomo' ? {
             strikePrice: currentPrice,
             endTime: Date.now() + (durationSeconds * 1000)
@@ -729,28 +739,48 @@ export const createGameSlice: StateCreator<any> = (set, get) => ({
       }
 
       // ── Save to Supabase bet_history ──────────────────────────────────────
-      // Always attempt the save for real-mode bets, using the captured address.
-      // Demo bets (id prefix "demo-") are excluded to keep admin stats clean.
+      // Real mode: persist all non-demo ids. Demo mode: persist demo-* ids only (admin splits real vs demo).
       const isDemoBet = String(resolvedBet.id).toLowerCase().startsWith('demo-');
-      if (accountType === 'real' && settlementAddress && !isDemoBet) {
-        fetch('/api/bets/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...balanceMutationHeaders() },
-          body: JSON.stringify({
-            id: resolvedBet.id,
-            walletAddress: settlementAddress,
-            asset: resolvedBet.asset || 'BNB',
-            direction: resolvedBet.direction,
-            amount: resolvedBet.amount,
-            multiplier: resolvedBet.multiplier,
-            strikePrice: resolvedBet.strikePrice || 0,
-            endPrice: currentPrice,
-            payout: payout,
-            won: won,
-            mode: resolvedBet.mode,
-            network: settlementCurrency,
-          })
-        }).catch(err => console.error('Failed to save bet to Supabase:', err));
+      if (settlementAddress) {
+        if (accountType === 'real' && !isDemoBet) {
+          fetch('/api/bets/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...balanceMutationHeaders() },
+            body: JSON.stringify({
+              id: resolvedBet.id,
+              walletAddress: settlementAddress,
+              asset: resolvedBet.asset || 'BNB',
+              direction: resolvedBet.direction,
+              amount: resolvedBet.amount,
+              multiplier: resolvedBet.multiplier,
+              strikePrice: resolvedBet.strikePrice || 0,
+              endPrice: currentPrice,
+              payout: payout,
+              won: won,
+              mode: resolvedBet.mode,
+              network: settlementCurrency,
+            }),
+          }).catch(err => console.error('Failed to save bet to Supabase:', err));
+        } else if (accountType === 'demo' && isDemoBet) {
+          fetch('/api/bets/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...balanceMutationHeaders() },
+            body: JSON.stringify({
+              id: resolvedBet.id,
+              walletAddress: settlementAddress,
+              asset: resolvedBet.asset || 'BNB',
+              direction: resolvedBet.direction,
+              amount: resolvedBet.amount,
+              multiplier: resolvedBet.multiplier,
+              strikePrice: resolvedBet.strikePrice || 0,
+              endPrice: currentPrice,
+              payout: payout,
+              won: won,
+              mode: resolvedBet.mode,
+              network: settlementCurrency,
+            }),
+          }).catch(err => console.error('Failed to save demo bet to Supabase:', err));
+        }
       }
     }
 
