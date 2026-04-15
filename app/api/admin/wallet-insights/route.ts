@@ -110,13 +110,21 @@ export async function GET(request: NextRequest) {
     // Sessions table may not exist yet — treat as empty rather than throwing
     const sessionRows = sessRes.error ? [] : (sessRes.data ?? []);
 
-    // Compute dwell-time stats
+    // Compute dwell-time stats.
+    // Cap each individual session at 4 hours (14 400 s) to prevent stale
+    // unclosed sessions from inflating the total — a real browsing session
+    // longer than 4 h is extremely unlikely and usually means the session was
+    // never terminated server-side.
+    const SESSION_CAP_SECONDS = 4 * 3600; // 4 hours
     const now = Date.now();
     let totalSeconds = 0;
     for (const s of sessionRows) {
-      const end = s.ended_at ? new Date(s.ended_at).getTime() : Math.min(new Date(s.last_ping_at).getTime() + 90_000, now);
+      const end = s.ended_at
+        ? new Date(s.ended_at).getTime()
+        : Math.min(new Date(s.last_ping_at).getTime() + 90_000, now);
       const start = new Date(s.started_at).getTime();
-      totalSeconds += Math.max(0, Math.floor((end - start) / 1000));
+      const raw = Math.max(0, Math.floor((end - start) / 1000));
+      totalSeconds += Math.min(raw, SESSION_CAP_SECONDS);
     }
     const lastSeen = sessionRows.length > 0 ? sessionRows[0].last_ping_at : null;
     const firstSeen = sessionRows.length > 0 ? sessionRows[sessionRows.length - 1].started_at : null;
@@ -133,14 +141,21 @@ export async function GET(request: NextRequest) {
       formatted: fmtDuration(totalSeconds),
       lastSeen,
       firstSeen,
-      recentSessions: sessionRows.slice(0, 20).map(s => ({
-        id: s.id,
-        network: s.network,
-        started_at: s.started_at,
-        last_ping_at: s.last_ping_at,
-        ended_at: s.ended_at ?? null,
-        durationSeconds: Math.max(0, Math.floor(((s.ended_at ? new Date(s.ended_at).getTime() : Math.min(new Date(s.last_ping_at).getTime() + 90_000, now)) - new Date(s.started_at).getTime()) / 1000)),
-      })),
+      recentSessions: sessionRows.slice(0, 20).map(s => {
+        const end = s.ended_at
+          ? new Date(s.ended_at).getTime()
+          : Math.min(new Date(s.last_ping_at).getTime() + 90_000, now);
+        const raw = Math.max(0, Math.floor((end - new Date(s.started_at).getTime()) / 1000));
+        return {
+          id: s.id,
+          network: s.network,
+          started_at: s.started_at,
+          last_ping_at: s.last_ping_at,
+          ended_at: s.ended_at ?? null,
+          durationSeconds: Math.min(raw, SESSION_CAP_SECONDS),
+          capped: raw > SESSION_CAP_SECONDS,
+        };
+      }),
     };
 
     const rawBalances = balRes.data ?? [];
