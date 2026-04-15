@@ -524,7 +524,7 @@ export default function WaitlistPage() {
                         <a href="https://github.com/AmaanSayyad/Bynomo" target="_blank" rel="noopener noreferrer" className="footer-meta-item">GitHub</a>
                         <a href="https://t.me/bynomo" target="_blank" rel="noopener noreferrer" className="footer-meta-item">Telegram</a>
                         <a href="https://discord.gg/5MAHQpWZ7b" target="_blank" rel="noopener noreferrer" className="footer-meta-item">Discord</a>
-                        <Link href="/bags" className="footer-meta-item">Bags</Link>
+                        <a href="https://bags.fm/apps/067c4ea3-94c8-47b7-b0c2-d80029f7fed8" target="_blank" rel="noopener noreferrer" className="footer-meta-item">Bags</a>
                         <a
                             href="https://www.futard.io/launch/2aJ7mzSagAVYr1hYFgJAYHCoDLbvkjTtRRe44knWidRc"
                             target="_blank"
