@@ -15,7 +15,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // Explicit column selection to avoid exposing sensitive future columns
     const { data: req, error: reqError } = await supabase
       .from('withdrawal_requests')
-      .select('id, user_address, currency, amount, net_amount, fee_amount, requested_at, status, decided_by, tx_hash, notes, account_type, created_at')
+      .select('id, user_address, currency, amount, net_amount, fee_amount, requested_at, status, decided_by, tx_hash, created_at')
       .eq('id', id)
       .single();
 

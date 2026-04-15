@@ -1,53 +1,17 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useStore } from '@/lib/store';
 
 interface TourStep {
     target: string;
     title: string;
     content: string;
-    action?: () => void;
+    howTo?: string[];   // numbered action steps shown below the content
+    win?: string;       // "you win when…" line
     position: 'top' | 'bottom' | 'left' | 'right';
 }
-
-const TOUR_STEPS: TourStep[] = [
-    {
-        target: '[data-tour="asset-selector"]',
-        title: 'Choose Your Asset',
-        content: 'Click here to switch between Crypto, Metals, Forex, and Stocks. Each has different volatility and returns.',
-        position: 'bottom'
-    },
-    {
-        target: '[data-tour="classic-mode"]',
-        title: 'Classic Mode',
-        content: 'Predict if the price will be Higher or Lower after a set amount of time. Simple and powerful.',
-        action: () => {
-            // We can't easily trigger a store action here without access to it, 
-            // but the component itself will handle the view.
-        },
-        position: 'top'
-    },
-    {
-        target: '[data-tour="box-mode"]',
-        title: 'Box Mode',
-        content: 'Place bets directly on the grid. Multipliers vary based on the price distance. High risk, high reward!',
-        position: 'top'
-    },
-    {
-        target: '[data-tour="wallet-tab"]',
-        title: 'Manage Your Funds',
-        content: 'Switch to the Wallet tab to see your balance, deposit funds, or request a withdrawal.',
-        position: 'top'
-    },
-    {
-        target: '[data-tour="deposit-section"]',
-        title: 'Quick Deposit',
-        content: 'Easily deposit BNB or SOL to start trading. Transactions are instant and secure.',
-        position: 'top'
-    }
-];
 
 export const QuickTour: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ isOpen, onClose }) => {
     const [currentStep, setCurrentStep] = useState(0);
@@ -62,43 +26,74 @@ export const QuickTour: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
     const steps: TourStep[] = useMemo(() => [
         ...(isConnected ? [] : [{
             target: '[data-tour="connect-button"]',
-            title: 'Welcome! Connect First',
-            content: 'Start by connecting your wallet. Choose any supported chain to begin trading.',
+            title: '👋 Welcome — Connect First',
+            content: 'Connect your wallet to get started. BNB Chain, Solana, and more are supported.',
             position: 'bottom' as const
         }]),
         {
             target: '[data-tour="asset-selector"]',
-            title: 'Choose Your Asset',
-            content: 'Switch between Crypto, Metals, Forex, and Stocks. Each has different volatility and returns.',
+            title: '📈 Pick Your Market',
+            content: 'Every asset trades live with real prices. Choose what you know best.',
+            howTo: [
+                'Click the asset selector at the top of the chart',
+                'Browse Crypto, Stocks, Metals, or Forex',
+                'Select any asset — the chart updates instantly',
+            ],
             position: 'bottom' as const
         },
         {
             target: '[data-tour="classic-mode"]',
-            title: 'Classic Mode',
-            content: 'Predict if the price will be Higher or Lower after a set amount of time. Simple and powerful.',
-            position: 'top' as const
+            title: '⚡ Classic Mode — Up or Down?',
+            content: 'The fastest mode. Set a timer, pick a direction, win if you\'re right when time runs out.',
+            howTo: [
+                'Enter your bet amount (or tap a quick-amount button)',
+                'Choose an expiry: 5 s, 10 s, 30 s, or 1 min',
+                'Tap ▲ Higher if you think price rises, ▼ Lower if it falls',
+                'Wait — if price moved your way you win × the multiplier shown',
+            ],
+            win: 'Price ends above (Higher) or below (Lower) the price when you placed the bet.',
+            position: 'bottom' as const
         },
         {
             target: '[data-tour="box-mode"]',
-            title: 'Box Mode',
-            content: 'Place bets directly on the grid. Multipliers vary based on the price distance. High risk, high reward!',
-            position: 'top' as const
+            title: '🎯 Box Mode — Click a Cell',
+            content: 'The chart turns into a grid of price boxes. Click one to bet on that exact price zone.',
+            howTo: [
+                'Enter your bet amount',
+                'Choose a time column on the chart (5 s … 60 s)',
+                'Click any cell on the price grid that appears',
+                'Cells far from the current price pay more — higher risk, higher reward',
+            ],
+            win: 'Price lands inside the cell you clicked when that column\'s timer expires.',
+            position: 'bottom' as const
         },
         {
-            target: '[data-tour="wallet-tab"]',
-            title: 'Navigation Controls',
-            content: 'Switch between Bet, Wallet, and Blitz modes using these tabs.',
-            position: 'top' as const
+            target: '[data-tour="draw-mode"]',
+            title: '✏️ Draw Mode — Draw Your Range',
+            content: 'You define both the price range AND the time window by drawing a rectangle on the chart.',
+            howTo: [
+                'Enter your bet amount (duration is auto-locked at 5 s)',
+                'Click and drag on the chart to draw a rectangle',
+                'The box sets your price range (height) and time window (width)',
+                'Release to see the preview, then tap Confirm to place the bet',
+            ],
+            win: 'Price stays inside your drawn rectangle for the full 5-second window.',
+            position: 'bottom' as const
         },
         {
             target: '[data-tour="deposit-section"]',
-            title: 'Manage Your Funds',
+            title: '💰 Fund Your Account',
             content: isConnected
-                ? 'Deposit funds on your selected chain. Your house balance is updated instantly.'
-                : 'After connecting, you can manage your deposits and withdrawals right here.',
-            // Prefer below the wallet stack so the card is not pushed off-screen (sidebar is tall).
+                ? 'Send BNB, SOL, or another supported token on-chain. Credits arrive instantly — no waiting.'
+                : 'After connecting, deposit here to get your house balance. No credits = no bets.',
+            howTo: [
+                'Tap the Wallet tab above',
+                'Choose your chain and copy the deposit address',
+                'Send funds from your external wallet',
+                'Balance appears within seconds — then you\'re ready to trade',
+            ],
             position: 'bottom' as const
-        }
+        },
     ], [isConnected]);
 
     // Handle view state changes (tabs/modes) independently of positioning
@@ -112,6 +107,7 @@ export const QuickTour: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
         const isTargetInPanel = [
             '[data-tour="classic-mode"]',
             '[data-tour="box-mode"]',
+            '[data-tour="draw-mode"]',
             '[data-tour="wallet-tab"]',
             '[data-tour="deposit-section"]'
         ].includes(step.target);
@@ -129,6 +125,7 @@ export const QuickTour: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
 
         if (step.target === '[data-tour="classic-mode"]') setGameMode('binomo');
         if (step.target === '[data-tour="box-mode"]') setGameMode('box');
+        if (step.target === '[data-tour="draw-mode"]') setGameMode('draw');
         if (step.target === '[data-tour="wallet-tab"]') setActiveTab('bet');
         if (step.target === '[data-tour="deposit-section"]') setActiveTab('wallet');
     }, [currentStep, isOpen, steps, setGameMode, setActiveTab]);
@@ -171,9 +168,9 @@ export const QuickTour: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
 
     const currentStepData = steps[currentStep];
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 640;
-    const tooltipWidth = isMobile ? Math.min(window.innerWidth - 40, 280) : 300;
+    const tooltipWidth = isMobile ? Math.min(window.innerWidth - 32, 300) : 340;
     // Layout estimate for viewport math (real card is taller; must not under-estimate or the bottom clips).
-    const tooltipLayoutHeight = isMobile ? 280 : 300;
+    const tooltipLayoutHeight = isMobile ? 340 : 380;
 
     // Calculate clamped position
     const calculatePosition = () => {
@@ -240,7 +237,7 @@ export const QuickTour: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
     };
 
     return (
-        <div className="fixed inset-0 z-[100] pointer-events-none">
+        <div className="fixed inset-0 z-[120] pointer-events-none">
             {/* Dimmed Background with Hole */}
             <svg className="absolute inset-0 w-full h-full pointer-events-auto">
                 <defs>
@@ -291,18 +288,47 @@ export const QuickTour: React.FC<{ isOpen: boolean; onClose: () => void }> = ({ 
                 className="absolute bg-[#0d0d0d] border border-white/10 rounded-2xl p-4 sm:p-5 shadow-2xl pointer-events-auto backdrop-blur-2xl flex flex-col max-h-[min(420px,calc(100vh-2rem))]"
                 style={{ width: tooltipWidth }}
             >
-                <div className="flex justify-between items-start mb-2 sm:mb-3 shrink-0">
-                    <h3 className="text-purple-400 font-bold text-[11px] sm:text-sm uppercase tracking-wider pr-2">
+                {/* Header */}
+                <div className="flex justify-between items-start mb-2 shrink-0">
+                    <h3 className="text-purple-400 font-bold text-[11px] sm:text-[13px] leading-snug pr-2">
                         {currentStepData.title}
                     </h3>
-                    <span className="text-[9px] sm:text-[10px] text-gray-500 font-mono shrink-0">
+                    <span className="text-[9px] sm:text-[10px] text-gray-500 font-mono shrink-0 mt-0.5">
                         {currentStep + 1} / {steps.length}
                     </span>
                 </div>
 
-                <p className="text-gray-300 text-[11px] sm:text-xs leading-relaxed mb-4 sm:mb-6 min-h-0 overflow-y-auto overscroll-contain">
-                    {currentStepData.content}
-                </p>
+                {/* Scrollable body */}
+                <div className="min-h-0 overflow-y-auto overscroll-contain space-y-3 mb-3 pr-0.5">
+                    {/* Summary sentence */}
+                    <p className="text-gray-300 text-[11px] sm:text-[12px] leading-relaxed">
+                        {currentStepData.content}
+                    </p>
+
+                    {/* How-to steps */}
+                    {currentStepData.howTo && currentStepData.howTo.length > 0 && (
+                        <ol className="space-y-1.5">
+                            {currentStepData.howTo.map((step, i) => (
+                                <li key={i} className="flex items-start gap-2 text-[10px] sm:text-[11px] text-gray-400 leading-snug">
+                                    <span className="shrink-0 mt-0.5 w-4 h-4 flex items-center justify-center rounded-full bg-purple-600/25 text-purple-400 font-black text-[9px]">
+                                        {i + 1}
+                                    </span>
+                                    <span>{step}</span>
+                                </li>
+                            ))}
+                        </ol>
+                    )}
+
+                    {/* Win condition */}
+                    {currentStepData.win && (
+                        <div className="flex items-start gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-2">
+                            <span className="shrink-0 text-emerald-400 text-[11px]">✓</span>
+                            <p className="text-emerald-300 text-[10px] sm:text-[11px] leading-snug font-medium">
+                                {currentStepData.win}
+                            </p>
+                        </div>
+                    )}
+                </div>
 
                 <div className="flex justify-between items-center mt-auto shrink-0 pt-1">
                     <button

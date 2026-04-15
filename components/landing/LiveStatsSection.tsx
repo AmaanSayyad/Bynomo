@@ -7,6 +7,7 @@ import {
   TrendingUp,
   Wallet,
   Users,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -68,6 +69,7 @@ interface StatCardProps {
   phase: string;
   label: string;
   value: number;
+  prefix?: string;
   suffix?: string;
   decimals?: number;
   description: string;
@@ -78,7 +80,7 @@ interface StatCardProps {
 }
 
 function StatCard({
-  accent, accentSoft, phase, label, value, suffix = '', decimals = 0,
+  accent, accentSoft, phase, label, value, prefix = '', suffix = '', decimals = 0,
   description, icon: Icon, index, started, children,
 }: StatCardProps) {
   const count = useCountUp(value, 1600, started);
@@ -148,6 +150,11 @@ function StatCard({
                 textShadow: `0 0 40px ${accent}50`,
               }}
             >
+              {prefix && (
+                <span className="text-[0.6em] font-extrabold" style={{ color: accent }}>
+                  {prefix}
+                </span>
+              )}
               {display}
               {suffix && (
                 <span className="ml-1 text-[0.55em] font-extrabold" style={{ color: accent }}>
@@ -186,33 +193,41 @@ const CARDS = [
     key: 'trades',
     phase: 'TRADE VOLUME',
     label: 'Total Rounds Played',
+    prefix: '',
+    suffix: '',
     accent: '#3b82f6',
     accentSoft: 'rgba(59,130,246,0.13)',
     icon: BarChart3,
     description: 'Every prediction round resolved on-chain across all supported assets and chains.',
   },
   {
-    key: 'paidout',
-    phase: 'LIQUIDITY',
-    label: 'Total Paid Out',
+    key: 'chains',
+    phase: 'MULTI-CHAIN',
+    label: 'Chains Supported',
+    prefix: '',
+    suffix: '+',
     accent: '#a855f7',
     accentSoft: 'rgba(168,85,247,0.13)',
-    icon: Wallet,
-    description: 'Cumulative payout volume returned to winning traders across all real-money rounds.',
+    icon: Zap,
+    description: 'Trade across BNB Chain, Solana, Sui, Starknet, Push Chain, and more — one platform, every chain.',
   },
   {
     key: 'payouts',
-    phase: 'PAYOUTS',
-    label: 'Winning Rounds',
+    phase: 'WINNING ROUNDS',
+    label: 'Rounds Won',
+    prefix: '',
+    suffix: '',
     accent: '#10b981',
     accentSoft: 'rgba(16,185,129,0.13)',
     icon: TrendingUp,
-    description: 'Total rounds where the house paid out a winning position to the trader.',
+    description: 'Number of rounds where the trader predicted correctly and received a payout.',
   },
   {
     key: 'deposits',
     phase: 'TREASURY FLOW',
     label: 'Deposits Processed',
+    prefix: '',
+    suffix: '',
     accent: '#f59e0b',
     accentSoft: 'rgba(245,158,11,0.13)',
     icon: Wallet,
@@ -222,6 +237,8 @@ const CARDS = [
     key: 'wallets',
     phase: 'COMMUNITY',
     label: 'Unique Traders',
+    prefix: '',
+    suffix: '',
     accent: '#06b6d4',
     accentSoft: 'rgba(6,182,212,0.13)',
     icon: Users,
@@ -250,7 +267,7 @@ export default function LiveStatsSection() {
 
   const cardValues: Record<string, number> = {
     trades:   s.totalBets,
-    paidout:  s.totalPaidOut,
+    chains:   s.chainsActive,
     payouts:  s.totalWins,
     deposits: s.totalDeposits,
     wallets:  s.uniqueWallets,
@@ -313,6 +330,8 @@ export default function LiveStatsSection() {
                 accentSoft={card.accentSoft}
                 phase={card.phase}
                 label={card.label}
+                prefix={card.prefix}
+                suffix={card.suffix}
                 icon={card.icon}
                 description={card.description}
                 started={started}
@@ -330,6 +349,8 @@ export default function LiveStatsSection() {
                 accentSoft={card.accentSoft}
                 phase={card.phase}
                 label={card.label}
+                prefix={card.prefix}
+                suffix={card.suffix}
                 icon={card.icon}
                 description={card.description}
                 started={started}

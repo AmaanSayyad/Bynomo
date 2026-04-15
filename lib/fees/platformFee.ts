@@ -42,10 +42,19 @@ function getEnvOptional(key: string): string | null {
 }
 
 export function getPlatformFeeWalletAddress(normalizedCurrency: string): string | null {
+  // PC (Push Chain native token) has its own dedicated treasury wallet.
+  // Set NEXT_PUBLIC_PLATFORM_FEE_WALLET_PC to your PC treasury address.
+  // Falls back to the generic EVM fee wallet if not configured.
+  if (normalizedCurrency === 'PC') {
+    return (
+      getEnvOptional('NEXT_PUBLIC_PLATFORM_FEE_WALLET_PC') ||
+      getEnvOptional('NEXT_PUBLIC_PLATFORM_FEE_WALLET_EVM')
+    );
+  }
+
   if (
     normalizedCurrency === 'BNB' ||
     normalizedCurrency === 'PUSH' ||
-    normalizedCurrency === 'PC' ||
     normalizedCurrency === 'SOMNIA' ||
     normalizedCurrency === 'STT' ||
     normalizedCurrency === '0G'
@@ -100,9 +109,15 @@ export async function collectPlatformFeeFromTreasury(
     return transferBNBFromTreasury(feeWallet, feeAmount);
   }
 
-  if (normalizedCurrency === 'PUSH' || normalizedCurrency === 'PC') {
+  if (normalizedCurrency === 'PUSH') {
     const { transferPUSHFromTreasury } = await import('@/lib/push/backend-client');
     return transferPUSHFromTreasury(feeWallet, feeAmount);
+  }
+
+  // PC uses its own treasury transfer so the fee goes to the PC treasury wallet.
+  if (normalizedCurrency === 'PC') {
+    const { transferPCFromTreasury } = await import('@/lib/push/backend-client');
+    return transferPCFromTreasury(feeWallet, feeAmount);
   }
 
   if (normalizedCurrency === 'SOMNIA' || normalizedCurrency === 'STT') {

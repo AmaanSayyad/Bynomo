@@ -7,8 +7,7 @@ import GridScan from '@/components/ui/GridScan';
 import HowItWorksSteps from '@/components/landing/HowItWorksSteps';
 import DemoVideoSection from '@/components/landing/DemoVideoSection';
 import LogosMarqueeSection from '@/components/landing/LogosMarqueeSection';
-import { AdvisorsRevealSection } from '@/components/landing/AdvisorsRevealSection';
-import { PartnershipsRevealSection } from '@/components/landing/PartnershipsRevealSection';
+import { SocialProofCarousel } from '@/components/landing/SocialProofCarousel';
 import LiveStatsSection from '@/components/landing/LiveStatsSection';
 import FutardEmbedSection, { FUTARD_LAUNCH_URL } from '@/components/landing/FutardEmbedSection';
 import './waitlist/waitlist.css';
@@ -404,21 +403,16 @@ export default function WaitlistPage() {
                             className="mb-3 sm:mb-4 text-2xl min-[400px]:text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tighter text-white px-1"
                             style={{ fontFamily: 'var(--font-orbitron)' }}
                         >
-                            Advisory Board{' '}
+                            Advisory Board & Partnerships{' '}
 
                         </h2>
                         
                     </motion.div>
                 </div>
 
-                {/* Advisors — single static card */}
-                <div className="relative z-10 mb-14 sm:mb-16">
-                    <AdvisorsRevealSection />
-                </div>
-
-                {/* Partnerships marquee */}
+                {/* Rolling carousel — Advisor + Partnership */}
                 <div className="relative z-10 pb-16 sm:pb-20 lg:pb-24">
-                    <PartnershipsRevealSection />
+                    <SocialProofCarousel />
                 </div>
             </section>
 
@@ -530,6 +524,16 @@ export default function WaitlistPage() {
                         <a href="https://github.com/AmaanSayyad/Bynomo" target="_blank" rel="noopener noreferrer" className="footer-meta-item">GitHub</a>
                         <a href="https://t.me/bynomo" target="_blank" rel="noopener noreferrer" className="footer-meta-item">Telegram</a>
                         <a href="https://discord.gg/5MAHQpWZ7b" target="_blank" rel="noopener noreferrer" className="footer-meta-item">Discord</a>
+                        <Link href="/bags" className="footer-meta-item">Bags</Link>
+                        <a
+                            href="https://www.futard.io/launch/2aJ7mzSagAVYr1hYFgJAYHCoDLbvkjTtRRe44knWidRc"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="footer-meta-item"
+                            style={{ color: 'rgba(45,212,191,0.7)' }}
+                        >
+                            Futard Fundraise ↗
+                        </a>
                     </div>
 
                     <div className="footer-link-group">

@@ -269,11 +269,14 @@ export const GameBoard: React.FC = () => {
         }
       } else if (network === 'PUSH') {
         if (!walletClient) throw new Error('Wallet not connected. Please reconnect via Connect Wallet.');
-        const evmFeeWallet = process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET_EVM;
-        if (!evmFeeWallet) throw new Error('EVM fee collector wallet not configured');
+        // PC fees go to the dedicated PC treasury wallet; fall back to the generic EVM fee wallet.
+        const pcFeeWallet =
+          process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET_PC ||
+          process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET_EVM;
+        if (!pcFeeWallet) throw new Error('PC fee treasury wallet not configured');
         toast.info(`Confirming ${blitzEntryFee} PC Blitz Entry...`);
         const hash = await walletClient.sendTransaction({
-          to: getAddress(evmFeeWallet) as `0x${string}`,
+          to: getAddress(pcFeeWallet) as `0x${string}`,
           value: parseEther(blitzEntryFee.toString()),
         });
         if (process.env.NODE_ENV === 'development') {
@@ -632,6 +635,7 @@ export const GameBoard: React.FC = () => {
           {/* Game Mode Selector */}
           <div className="flex shrink-0 gap-1 p-1 bg-black/60 border-b border-white/5" data-tour="game-mode-toggle">
             <button
+              data-tour="classic-mode"
               onClick={() => setGameMode('binomo')}
               className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all duration-200 ${gameMode === 'binomo'
                 ? 'bg-purple-600/20 text-purple-400 border border-purple-500/40'
@@ -641,6 +645,7 @@ export const GameBoard: React.FC = () => {
               Classic
             </button>
             <button
+              data-tour="box-mode"
               onClick={() => setGameMode('box')}
               className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all duration-200 ${gameMode === 'box'
                 ? 'bg-purple-600/20 text-purple-400 border border-purple-500/40'
@@ -650,6 +655,7 @@ export const GameBoard: React.FC = () => {
               Box
             </button>
             <button
+              data-tour="draw-mode"
               onClick={() => setGameMode('draw')}
               className={`flex-1 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-tighter transition-all duration-200 ${gameMode === 'draw'
                 ? 'bg-purple-600/20 text-purple-400 border border-purple-500/40'

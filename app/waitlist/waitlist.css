@@ -550,7 +550,7 @@
 }
 
 .futard-embed-content {
-    max-width: 1200px;
+    max-width: 1400px;
     margin: 0 auto;
 }
 
@@ -635,8 +635,8 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
     background: #000;
     box-shadow: 0 40px 100px -40px rgba(0, 0, 0, 0.9);
-    aspect-ratio: 16 / 10;
-    min-height: 420px;
+    aspect-ratio: 16 / 9;
+    min-height: 620px;
 }
 
 .futard-embed-frame iframe {
@@ -653,7 +653,7 @@
     }
 
     .futard-embed-frame {
-        min-height: 320px;
+        min-height: 480px;
         border-radius: 14px;
     }
 }
