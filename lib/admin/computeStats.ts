@@ -126,6 +126,8 @@ function aggregateByNetwork(rows: any[]): Record<string, NetworkPnLRow> {
 }
 
 const SESSION_IDLE_TAIL_MS = 90_000;
+const SESSION_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const SESSION_MAX_SECONDS = 4 * 60 * 60; // cap per-session dwell at 4h
 function sessionDurationSeconds(
   row: { started_at: string; last_ping_at: string; ended_at: string | null },
   nowMs: number,
@@ -220,9 +222,16 @@ export async function computePlatformStats(): Promise<PlatformStats> {
   try {
     const sessions = await fetchAllSessions();
     const nowMs = Date.now();
+    const lookbackCutoffMs = nowMs - SESSION_LOOKBACK_MS;
     let sumReal = 0, sumDemo = 0;
     for (const s of sessions) {
-      const sec = sessionDurationSeconds(s, nowMs);
+      const startedAtMs = new Date(s.started_at).getTime();
+      if (!Number.isFinite(startedAtMs) || startedAtMs < lookbackCutoffMs) continue;
+
+      const secRaw = sessionDurationSeconds(s, nowMs);
+      if (secRaw <= 0) continue;
+      const sec = Math.min(secRaw, SESSION_MAX_SECONDS);
+
       if (isDemoWallet(s.wallet_address)) { sumDemo += sec; countDemo++; }
       else { sumReal += sec; countReal++; }
     }

@@ -7,7 +7,7 @@ import {
   TrendingUp,
   Wallet,
   Users,
-  Trophy,
+  Zap,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -69,6 +69,7 @@ interface StatCardProps {
   phase: string;
   label: string;
   value: number;
+  prefix?: string;
   suffix?: string;
   decimals?: number;
   description: string;
@@ -79,7 +80,7 @@ interface StatCardProps {
 }
 
 function StatCard({
-  accent, accentSoft, phase, label, value, suffix = '', decimals = 0,
+  accent, accentSoft, phase, label, value, prefix = '', suffix = '', decimals = 0,
   description, icon: Icon, index, started, children,
 }: StatCardProps) {
   const count = useCountUp(value, 1600, started);
@@ -149,6 +150,11 @@ function StatCard({
                 textShadow: `0 0 40px ${accent}50`,
               }}
             >
+              {prefix && (
+                <span className="text-[0.6em] font-extrabold" style={{ color: accent }}>
+                  {prefix}
+                </span>
+              )}
               {display}
               {suffix && (
                 <span className="ml-1 text-[0.55em] font-extrabold" style={{ color: accent }}>
@@ -180,55 +186,6 @@ function StatCard({
   );
 }
 
-// ─── Win / Loss Bar ───────────────────────────────────────────────────────────
-
-function WinLossBar({ wins, losses, started }: { wins: number; losses: number; started: boolean }) {
-  const total = wins + losses || 1;
-  const winPct = (wins / total) * 100;
-  const [width, setWidth] = useState(0);
-
-  useEffect(() => {
-    if (!started) return;
-    const t = setTimeout(() => setWidth(winPct), 300);
-    return () => clearTimeout(t);
-  }, [started, winPct]);
-
-  return (
-    <div className="space-y-2.5">
-      {/* Bar */}
-      <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-        <div
-          className="absolute left-0 top-0 h-full rounded-full transition-[width] duration-[1400ms] ease-out"
-          style={{
-            width: `${width}%`,
-            background: 'linear-gradient(90deg, #10b981, #6ee7b7)',
-            boxShadow: '0 0 12px rgba(16,185,129,0.6)',
-          }}
-        />
-        <div
-          className="absolute top-0 h-full rounded-full transition-[left,width] duration-[1400ms] ease-out"
-          style={{
-            left: `${width}%`,
-            width: `${100 - width}%`,
-            background: 'linear-gradient(90deg, #ef444455, #ef444433)',
-          }}
-        />
-      </div>
-      {/* Legend */}
-      <div className="flex items-center justify-between text-[11px] font-bold tabular-nums">
-        <span className="flex items-center gap-1.5 text-emerald-400/80">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-          {fmt(wins)} wins
-        </span>
-        <span className="flex items-center gap-1.5 text-red-400/70">
-          {fmt(losses)} losses
-          <span className="h-1.5 w-1.5 rounded-full bg-red-400/70" />
-        </span>
-      </div>
-    </div>
-  );
-}
-
 // ─── Section ─────────────────────────────────────────────────────────────────
 
 const CARDS = [
@@ -236,33 +193,41 @@ const CARDS = [
     key: 'trades',
     phase: 'TRADE VOLUME',
     label: 'Total Rounds Played',
+    prefix: '',
+    suffix: '',
     accent: '#3b82f6',
     accentSoft: 'rgba(59,130,246,0.13)',
     icon: BarChart3,
     description: 'Every prediction round resolved on-chain across all supported assets and chains.',
   },
   {
-    key: 'winrate',
-    phase: 'WIN / LOSS',
-    label: 'Platform Win Rate',
+    key: 'chains',
+    phase: 'MULTI-CHAIN',
+    label: 'Chains Supported',
+    prefix: '',
+    suffix: '+',
     accent: '#a855f7',
     accentSoft: 'rgba(168,85,247,0.13)',
-    icon: Trophy,
-    description: 'Aggregate win rate across all real-money rounds since genesis.',
+    icon: Zap,
+    description: 'Trade across BNB Chain, Solana, Sui, Starknet, Push Chain, and more — one platform, every chain.',
   },
   {
     key: 'payouts',
-    phase: 'PAYOUTS',
-    label: 'Winning Rounds',
+    phase: 'WINNING ROUNDS',
+    label: 'Rounds Won',
+    prefix: '',
+    suffix: '',
     accent: '#10b981',
     accentSoft: 'rgba(16,185,129,0.13)',
     icon: TrendingUp,
-    description: 'Total rounds where the house paid out a winning position to the trader.',
+    description: 'Number of rounds where the trader predicted correctly and received a payout.',
   },
   {
     key: 'deposits',
     phase: 'TREASURY FLOW',
     label: 'Deposits Processed',
+    prefix: '',
+    suffix: '',
     accent: '#f59e0b',
     accentSoft: 'rgba(245,158,11,0.13)',
     icon: Wallet,
@@ -272,6 +237,8 @@ const CARDS = [
     key: 'wallets',
     phase: 'COMMUNITY',
     label: 'Unique Traders',
+    prefix: '',
+    suffix: '',
     accent: '#06b6d4',
     accentSoft: 'rgba(6,182,212,0.13)',
     icon: Users,
@@ -300,7 +267,7 @@ export default function LiveStatsSection() {
 
   const cardValues: Record<string, number> = {
     trades:   s.totalBets,
-    winrate:  Math.round(s.winRate * 10),
+    chains:   s.chainsActive,
     payouts:  s.totalWins,
     deposits: s.totalDeposits,
     wallets:  s.uniqueWallets,
@@ -363,17 +330,13 @@ export default function LiveStatsSection() {
                 accentSoft={card.accentSoft}
                 phase={card.phase}
                 label={card.label}
+                prefix={card.prefix}
+                suffix={card.suffix}
                 icon={card.icon}
                 description={card.description}
                 started={started}
                 value={cardValues[card.key]}
-                suffix={card.key === 'winrate' ? '%' : ''}
-                decimals={card.key === 'winrate' ? 1 : 0}
-              >
-                {card.key === 'winrate' && (
-                  <WinLossBar wins={s.totalWins} losses={s.totalLosses} started={started} />
-                )}
-              </StatCard>
+              />
             ))}
           </div>
 
@@ -386,6 +349,8 @@ export default function LiveStatsSection() {
                 accentSoft={card.accentSoft}
                 phase={card.phase}
                 label={card.label}
+                prefix={card.prefix}
+                suffix={card.suffix}
                 icon={card.icon}
                 description={card.description}
                 started={started}

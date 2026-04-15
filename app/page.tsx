@@ -7,9 +7,9 @@ import GridScan from '@/components/ui/GridScan';
 import HowItWorksSteps from '@/components/landing/HowItWorksSteps';
 import DemoVideoSection from '@/components/landing/DemoVideoSection';
 import LogosMarqueeSection from '@/components/landing/LogosMarqueeSection';
-import { AdvisorsRevealSection } from '@/components/landing/AdvisorsRevealSection';
-import { PartnershipsRevealSection } from '@/components/landing/PartnershipsRevealSection';
+import { SocialProofCarousel } from '@/components/landing/SocialProofCarousel';
 import LiveStatsSection from '@/components/landing/LiveStatsSection';
+import FutardEmbedSection, { FUTARD_LAUNCH_URL } from '@/components/landing/FutardEmbedSection';
 import './waitlist/waitlist.css';
 
 const testimonials = [
@@ -183,6 +183,35 @@ export default function WaitlistPage() {
                                     ◆
                                 </span>
                             </div>
+
+                            <div className="pointer-events-auto inline-flex items-center gap-2 sm:gap-4 px-8 sm:px-14" aria-hidden={i > 0}>
+                                <span className="text-base sm:text-xl shrink-0" aria-hidden>
+                                    🚀
+                                </span>
+                                <span className="text-[10px] sm:text-sm font-semibold text-white/80">
+                                    Bynomo is fundraising on{' '}
+                                    <span className="font-black text-emerald-300 text-xs sm:text-base" style={{ textShadow: '0 0 20px rgba(52,211,153,0.35)' }}>
+                                        Futard.io
+                                    </span>
+                                </span>
+                                <a
+                                    href={FUTARD_LAUNCH_URL}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    tabIndex={i > 0 ? -1 : undefined}
+                                    className="pointer-events-auto group inline-flex items-center gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-xs font-bold text-black transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 shrink-0"
+                                    style={{ background: 'linear-gradient(135deg, #5eead4, #2dd4bf)' }}
+                                    aria-label="View Bynomo fundraising launch on Futard (opens in new tab)"
+                                >
+                                    View launch
+                                    <span className="group-hover:translate-x-0.5 transition-transform inline-block" aria-hidden>
+                                        ↗
+                                    </span>
+                                </a>
+                                <span className="text-emerald-900 text-base sm:text-lg mx-3 sm:mx-6 shrink-0" aria-hidden>
+                                    ◆
+                                </span>
+                            </div>
                         </React.Fragment>
                     ))}
                 </div>
@@ -350,6 +379,9 @@ export default function WaitlistPage() {
             {/* LIVE PLATFORM STATS */}
             <LiveStatsSection />
 
+            {/* FUTARD FUNDRAISING EMBED */}
+            <FutardEmbedSection />
+
             {/* ADVISORS + PARTNERSHIPS — marquee rows */}
             <section className="relative overflow-hidden border-t border-white/[0.06] bg-[#02040a]">
                 <div className="pointer-events-none absolute left-1/2 top-0 h-[400px] w-[700px] -translate-x-1/2 rounded-full bg-purple-600/[0.05] blur-[130px]" />
@@ -371,21 +403,16 @@ export default function WaitlistPage() {
                             className="mb-3 sm:mb-4 text-2xl min-[400px]:text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tighter text-white px-1"
                             style={{ fontFamily: 'var(--font-orbitron)' }}
                         >
-                            Advisory Board{' '}
+                            Advisory Board & Partnerships{' '}
 
                         </h2>
                         
                     </motion.div>
                 </div>
 
-                {/* Advisors — single static card */}
-                <div className="relative z-10 mb-14 sm:mb-16">
-                    <AdvisorsRevealSection />
-                </div>
-
-                {/* Partnerships marquee */}
+                {/* Rolling carousel — Advisor + Partnership */}
                 <div className="relative z-10 pb-16 sm:pb-20 lg:pb-24">
-                    <PartnershipsRevealSection />
+                    <SocialProofCarousel />
                 </div>
             </section>
 
@@ -497,6 +524,16 @@ export default function WaitlistPage() {
                         <a href="https://github.com/AmaanSayyad/Bynomo" target="_blank" rel="noopener noreferrer" className="footer-meta-item">GitHub</a>
                         <a href="https://t.me/bynomo" target="_blank" rel="noopener noreferrer" className="footer-meta-item">Telegram</a>
                         <a href="https://discord.gg/5MAHQpWZ7b" target="_blank" rel="noopener noreferrer" className="footer-meta-item">Discord</a>
+                        <Link href="/bags" className="footer-meta-item">Bags</Link>
+                        <a
+                            href="https://www.futard.io/launch/2aJ7mzSagAVYr1hYFgJAYHCoDLbvkjTtRRe44knWidRc"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="footer-meta-item"
+                            style={{ color: 'rgba(45,212,191,0.7)' }}
+                        >
+                            Futard Fundraise ↗
+                        </a>
                     </div>
 
                     <div className="footer-link-group">

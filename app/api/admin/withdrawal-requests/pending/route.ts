@@ -9,7 +9,7 @@ export async function GET(_request: NextRequest) {
     // Explicit column selection to avoid exposing sensitive future columns
     const { data, error } = await supabase
       .from('withdrawal_requests')
-      .select('id, user_address, currency, amount, net_amount, fee_amount, fee_tier, requested_at, status, decided_by, tx_hash, notes, account_type, created_at')
+      .select('id, user_address, currency, amount, net_amount, fee_amount, requested_at, status, decided_by, tx_hash, created_at')
       .eq('status', 'pending')
       .order('requested_at', { ascending: false })
       .limit(50);

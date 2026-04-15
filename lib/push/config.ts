@@ -27,3 +27,21 @@ export function getPushConfig(): PushConfig {
         treasuryAddress,
     };
 }
+
+/** EVM-style block explorer for Push Donut (tx / address links after deposit & withdraw). */
+export function getPushExplorerBaseUrl(): string {
+    const raw =
+        process.env.NEXT_PUBLIC_PUSH_EXPLORER_URL?.trim() ||
+        'https://donut.push.network';
+    return raw.replace(/\/$/, '');
+}
+
+export function getPushExplorerTxUrl(txHash: string): string {
+    const h = (txHash || '').trim();
+    return `${getPushExplorerBaseUrl()}/tx/${encodeURIComponent(h)}`;
+}
+
+export function getPushExplorerAddressUrl(address: string): string {
+    const a = (address || '').trim();
+    return `${getPushExplorerBaseUrl()}/address/${encodeURIComponent(a)}`;
+}

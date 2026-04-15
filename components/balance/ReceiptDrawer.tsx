@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { CheckCircle2, Clock3, Copy, ExternalLink, X } from 'lucide-react';
+import { getPushExplorerTxUrl } from '@/lib/push/config';
 
 export interface ReceiptData {
   kind: 'deposit' | 'withdrawal';
@@ -25,7 +26,7 @@ function explorerUrl(chain: string, txHash?: string) {
   if (c === 'XTZ') return `https://tzkt.io/${txHash}`;
   if (c === 'NEAR') return `https://nearblocks.io/txns/${txHash}`;
   if (c === 'STRK') return `https://starkscan.co/tx/${txHash}`;
-  if (c === 'PUSH' || c === 'PC') return `https://explorer-testnet.push.org/tx/${txHash}`;
+  if (c === 'PUSH' || c === 'PC') return getPushExplorerTxUrl(txHash);
   if (c === 'SOMNIA' || c === 'STT') return `https://shannon-explorer.somnia.network/tx/${txHash}`;
   return null;
 }

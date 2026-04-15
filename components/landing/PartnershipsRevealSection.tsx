@@ -1,75 +1,47 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 
-const PARTNER_LOGOS = [
-  { key: 'BNB', src: '/logos/bnb-bnb-logo.png', alt: 'BNB Chain' },
-  { key: 'PUSH', src: '/logos/push-logo.png', alt: 'Push Chain' },
-  { key: 'SOL', src: '/logos/solana-sol-logo.png', alt: 'Solana' },
-  { key: 'YZI', src: '/logos/yzilabs.jpg', alt: 'YZi Labs' },
-  { key: 'YC', src: '/logos/Y-Combinator.png', alt: 'Y Combinator' },
-  { key: 'NITRO', src: '/logos/nitro.svg', alt: 'Nitro' },
-  { key: 'ALLIANCE', src: '/logos/alliance.jpg', alt: 'Alliance' },
-];
-
-/**
- * Full-width scrolling marquee for confirmed partnerships.
- * Reuses the logos-marquee-* CSS classes from waitlist.css.
- */
 export function PartnershipsRevealSection() {
-  // Repeat 8× before doubling so the row fills any viewport width.
-  const trackItems = useMemo(
-    () => {
-      const repeated = Array.from({ length: 8 }, () => PARTNER_LOGOS).flat();
-      return [...repeated, ...repeated]; // doubled for seamless loop
-    },
-    [],
-  );
-
   return (
-    <div className="w-full">
-      {/* Sub-heading */}
+    <div className="relative z-10 w-full">
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true, margin: '-40px' }}
-        transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
-        className="mb-6 px-4 text-center sm:mb-8 sm:px-6 lg:px-8"
+        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8"
       >
-        <div className="mb-2 flex items-center justify-center gap-2 font-mono text-[9px] uppercase tracking-[0.28em] text-white/25 sm:text-[10px]">
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-          Strategic alliances · confirmed
-        </div>
-        <h3
-          className="text-xl font-black uppercase tracking-tight text-white sm:text-2xl lg:text-3xl"
-          style={{ fontFamily: 'var(--font-orbitron)' }}
+        <a
+          href="https://x.com/bynomofun/status/2044394325547872432?s=20"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="advisor-card block"
+          style={{ cursor: 'pointer' }}
         >
-          Partnerships
-        </h3>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logos/push-bynomo-partnership-banner.png"
+            alt="Bynomo × Push Chain — confirmed strategic partnership"
+            className="advisor-card-photo"
+          />
+
+          {/* Confirmed badge */}
+          <div className="advisor-card-badge">
+            <span className="advisor-card-badge-dot" />
+            Confirmed
+          </div>
+
+          {/* View on X hint */}
+          <div className="absolute bottom-3 right-3 flex items-center gap-1.5 rounded-full bg-black/70 backdrop-blur-sm border border-white/10 px-2.5 py-1 text-[9px] font-bold uppercase tracking-widest text-white/60">
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-white/50">
+              <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.746l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.912-5.622Zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+            </svg>
+            View on X
+          </div>
+        </a>
       </motion.div>
-
-      {/* Marquee row — same classes as LogosMarqueeSection */}
-      <div
-        className="logos-marquee-row"
-        aria-label="Partner logos: BNB Chain, Push Chain, Solana"
-      >
-        {/* Fade edges */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-[#02040a] to-transparent" />
-        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-[#02040a] to-transparent" />
-
-        <div
-          className="logos-marquee-track partner-marquee-track"
-          style={{ '--logos-marquee-duration': '60s' } as React.CSSProperties}
-        >
-          {trackItems.map((l, i) => (
-            <div key={`${l.key}-${i}`} className="logos-marquee-tile partner-logo-tile">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={l.src} alt={l.alt} className="logos-marquee-img" />
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
