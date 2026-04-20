@@ -704,7 +704,7 @@ export default function AdminDashboard() {
                         <StatBox title="Total Referrals" value={(stats?.real?.totalReferrals ?? 0).toString()} label="Network Growth" />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <StatBox title="Market Assets" value={marketTokens.length.toString()} label="Active Price Feeds" />
+                    <StatBox title="Market Assets" value={marketTokens.length.toString()} label="Active Price Feeds" />
                         <StatBox
                             title="Avg. time spent"
                             value={fmtAvgSession(stats?.real?.averageSessionSeconds, stats?.real?.sessionSampleCount)}
