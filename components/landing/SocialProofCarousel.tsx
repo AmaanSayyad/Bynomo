@@ -20,6 +20,14 @@ const SLIDES = [
     imgStyle: undefined,
     href: 'https://x.com/bynomofun/status/2044394325547872432?s=20',
   },
+  {
+    id: 'coinzaar',
+    src: '/logos/BynomoPartnershipCoinzaarLabs.png',
+    alt: 'Bynomo × Coinzaar Labs — confirmed strategic partnership',
+    badge: 'Confirmed',
+    imgStyle: undefined,
+    href: null,
+  },
 ];
 
 const INTERVAL_MS = 4500;
