@@ -9,7 +9,7 @@ const SLIDES = [
     src: '/logos/Lucas Advisor.JPG',
     alt: 'Lucas Liao, Solutions Architect at BNB Chain — confirmed advisor',
     badge: 'Confirmed',
-    imgStyle: { filter: 'blur(8px)', transform: 'scale(1.05)' } as React.CSSProperties,
+    imgStyle: undefined,
     href: null,
   },
   {
