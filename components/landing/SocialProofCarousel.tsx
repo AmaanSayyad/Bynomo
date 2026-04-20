@@ -9,7 +9,7 @@ const SLIDES = [
     src: '/logos/Lucas Advisor.JPG',
     alt: 'Lucas Liao, Solutions Architect at BNB Chain — confirmed advisor',
     badge: 'Confirmed',
-    imgStyle: { filter: 'blur(8px)', transform: 'scale(1.05)' } as React.CSSProperties,
+    imgStyle: undefined,
     href: null,
   },
   {
@@ -19,6 +19,14 @@ const SLIDES = [
     badge: 'Confirmed',
     imgStyle: undefined,
     href: 'https://x.com/bynomofun/status/2044394325547872432?s=20',
+  },
+  {
+    id: 'coinzaar',
+    src: '/logos/BynomoPartnershipCoinzaarLabs.png',
+    alt: 'Bynomo × Coinzaar Labs — confirmed strategic partnership',
+    badge: 'Confirmed',
+    imgStyle: undefined,
+    href: null,
   },
 ];
 
