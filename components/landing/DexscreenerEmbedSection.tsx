@@ -3,9 +3,9 @@
 import React from 'react';
 
 const DEXSCREENER_PAIR_URL = 'https://dexscreener.com/solana/7aucpepeiykpwzxe1y9hl3c1qj13d1en3dsxlcps9zum';
+/** Official Dexscreener embed URL (must match their snippet). */
 const DEXSCREENER_EMBED_URL =
-  'https://dexscreener.com/solana/7AucPepeiykPwZXe1y9HL3c1QJ13D1eN3dsxLcPs9zum' +
-  '?embed=1&loadChartSettings=0&chartLeftToolbar=0&chartDefaultOnMobile=1&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15';
+  'https://dexscreener.com/solana/7AucPepeiykPwZXe1y9HL3c1QJ13D1eN3dsxLcPs9zum?embed=1&loadChartSettings=0&chartLeftToolbar=0&chartDefaultOnMobile=1&chartTheme=dark&theme=dark&chartStyle=0&chartType=usd&interval=15';
 
 export default function DexscreenerEmbedSection() {
   return (
@@ -49,14 +49,16 @@ export default function DexscreenerEmbedSection() {
           </p>
         </div>
 
-        <div className="dexscreener-embed">
-          <iframe
-            src={DEXSCREENER_EMBED_URL}
-            title="Dexscreener chart: BYNOMO/SOL"
-            allow="clipboard-write; fullscreen"
-            loading="lazy"
-            referrerPolicy="no-referrer"
-          />
+        {/* Official embed structure + styles in waitlist.css (#dexscreener-embed) */}
+        <div className="dexscreener-embed-slot">
+          <div id="dexscreener-embed">
+            <iframe
+              src={DEXSCREENER_EMBED_URL}
+              title="Dexscreener chart: BYNOMO/SOL"
+              allow="clipboard-write; fullscreen"
+              loading="lazy"
+            />
+          </div>
         </div>
       </div>
     </section>

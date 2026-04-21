@@ -642,23 +642,27 @@
     transform: translateY(-1px);
 }
 
-/* Responsive embed (end-to-end) */
-.dexscreener-embed {
-    position: relative;
+/* Dexscreener official embed ratio (matches their embed snippet) */
+.dexscreener-embed-slot {
     width: 100%;
-    height: min(72vh, 760px);
     border-top: 1px solid rgba(255, 255, 255, 0.06);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     background: #07080c;
 }
 
-@media (max-width: 1024px) {
-    .dexscreener-embed {
-        height: min(68vh, 560px);
+#dexscreener-embed {
+    position: relative;
+    width: 100%;
+    padding-bottom: 125%;
+}
+
+@media (min-width: 1400px) {
+    #dexscreener-embed {
+        padding-bottom: 65%;
     }
 }
 
-.dexscreener-embed iframe {
+#dexscreener-embed iframe {
     position: absolute;
     width: 100%;
     height: 100%;
@@ -680,10 +684,6 @@
         display: block;
         margin-left: 0;
         margin-top: 8px;
-    }
-
-    .dexscreener-embed {
-        height: 520px;
     }
 }
 
