@@ -9,7 +9,7 @@ import DemoVideoSection from '@/components/landing/DemoVideoSection';
 import LogosMarqueeSection from '@/components/landing/LogosMarqueeSection';
 import { SocialProofCarousel } from '@/components/landing/SocialProofCarousel';
 import LiveStatsSection from '@/components/landing/LiveStatsSection';
-import FutardEmbedSection, { FUTARD_LAUNCH_URL } from '@/components/landing/FutardEmbedSection';
+import DexscreenerEmbedSection from '@/components/landing/DexscreenerEmbedSection';
 import './waitlist/waitlist.css';
 
 const testimonials = [
@@ -195,7 +195,7 @@ export default function WaitlistPage() {
                                     </span>
                                 </span>
                                 <a
-                                    href={FUTARD_LAUNCH_URL}
+                                    href="https://www.futard.io/launch/2aJ7mzSagAVYr1hYFgJAYHCoDLbvkjTtRRe44knWidRc"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     tabIndex={i > 0 ? -1 : undefined}
@@ -379,8 +379,8 @@ export default function WaitlistPage() {
             {/* LIVE PLATFORM STATS */}
             <LiveStatsSection />
 
-            {/* FUTARD FUNDRAISING EMBED */}
-            <FutardEmbedSection />
+            {/* DEXSCREENER LIVE CHART */}
+            <DexscreenerEmbedSection />
 
             {/* ADVISORS + PARTNERSHIPS — marquee rows */}
             <section className="relative overflow-hidden border-t border-white/[0.06] bg-[#02040a]">
