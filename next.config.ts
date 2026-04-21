@@ -30,7 +30,7 @@ const nextConfig: NextConfig = {
       "img-src 'self' data: blob: https:",
       "connect-src 'self' https: wss:",
       // Allow only known embed providers used by the app.
-      "frame-src https://www.youtube.com https://youtube.com https://docs.google.com https://www.futard.io https://futard.io",
+      "frame-src https://www.youtube.com https://youtube.com https://docs.google.com https://www.futard.io https://futard.io https://dexscreener.com",
       "upgrade-insecure-requests",
     ].join("; ");
 
