@@ -63,15 +63,6 @@ export function Header() {
                 {pathname === '/' && (
                     <div className="hidden xl:flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-white/55">
                         <Link href="/litepaper" className="hover:text-white transition-colors">Litepaper</Link>
-                        <a
-                            href="https://www.futard.io/launch/2aJ7mzSagAVYr1hYFgJAYHCoDLbvkjTtRRe44knWidRc"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-teal-400/80 hover:text-teal-300 transition-colors"
-                        >
-                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
-                            Fundraise
-                        </a>
                         <a href="https://bags.fm/apps/067c4ea3-94c8-47b7-b0c2-d80029f7fed8" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Bags</a>
                         <a href="https://linktr.ee/bynomo.fun" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Linktree</a>
                         <a href="https://x.com/bynomofun" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">X</a>
