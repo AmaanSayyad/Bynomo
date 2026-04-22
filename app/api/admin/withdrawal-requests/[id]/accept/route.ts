@@ -4,6 +4,7 @@ import { requireAdminAuth } from '@/lib/admin/requireAdminAuth';
 import { calculateFeeAmount, collectPlatformFeeFromTreasury } from '@/lib/fees/platformFee';
 import { supabaseService as supabase } from '@/lib/supabase/serviceClient';
 import { canonicalHouseUserAddress } from '@/lib/wallet/canonicalAddress';
+import { isWalletGloballyBanned } from '@/lib/bans/walletBan';
 import { ethers } from 'ethers';
 
 async function executeTreasuryWithdrawal(
@@ -90,10 +91,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return NextResponse.json({ error: `Cannot accept request in status: ${req.status}` }, { status: 400 });
     }
 
-    const userAddress = String(req.user_address);
+    const userAddress = String(req.user_address).trim();
     const currency = String(req.currency);
     const amount = Number(req.amount);
     const normalizedCurrency = currency.toUpperCase();
+
+    // Global ban list must block approval — user_balances.status may still be "active"
+    // if only banned_wallets was updated (instant /api/balance/withdraw already checks this).
+    if (await isWalletGloballyBanned(userAddress)) {
+      return NextResponse.json(
+        {
+          error:
+            'This wallet is on the global ban list. Reject the withdrawal; treasury payout is not allowed.',
+        },
+        { status: 403 },
+      );
+    }
 
     // Re-verify signed intent for EVM-like chains.
     const requiresIntentSignature =
