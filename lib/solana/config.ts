@@ -1,16 +1,26 @@
 /**
  * Solana Network Configuration
- * 
- * This module provides centralized configuration for Solana blockchain integration.
+ *
+ * Three different concepts (do not mix them up):
+ *
+ * - **BYNOMO SPL mint** (`BYNOMO_SPL_MINT_MAINNET`) — on-chain mint account for the token; it is *not* a user wallet and has no private key in your `.env`.
+ * - **Operational treasury** (`NEXT_PUBLIC_SOL_TREASURY_ADDRESS`) — house vault for SOL + SPL deposits and withdrawals. Must be the **only** pubkey controlled by `SOL_TREASURY_SECRET_KEY` (server-side).
+ * - **Protocol fee collector** (`NEXT_PUBLIC_PLATFORM_FEE_WALLET_BYNOMO` / `NEXT_PUBLIC_PLATFORM_FEE_WALLET_SOL`) — **different** pubkey that receives tiered fees via backend transfers *from* the treasury after deposits/withdrawals.
  */
 
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
-import { clusterApiUrl } from '@solana/web3.js';
+
+/** Mainnet BYNOMO SPL mint address — token identifier, not a treasury or fee wallet. */
+export const BYNOMO_SPL_MINT_MAINNET = 'Faw8wwB6MnyAm9xG3qeXgN1isk9agXBoaRZX9Ma8BAGS';
 
 export interface SolanaConfig {
     network: WalletAdapterNetwork;
     rpcEndpoint: string;
     treasuryAddress: string;
+}
+
+export interface SolanaStakingVaultConfig {
+    address: string;
 }
 
 /**
@@ -72,4 +82,18 @@ export function getSolanaConfig(): SolanaConfig {
  */
 export function validateSolanaConfig(): void {
     getSolanaConfig();
+}
+
+/**
+ * Optional dedicated staking vault for BYNOMO staking custody.
+ * When configured, staking routes move SPL tokens between treasury and this vault.
+ */
+export function getSolanaStakingVaultConfig(): SolanaStakingVaultConfig {
+    const address = process.env.NEXT_PUBLIC_SOL_STAKING_VAULT_ADDRESS?.trim();
+    if (!address) {
+        throw new Error(
+            'Missing NEXT_PUBLIC_SOL_STAKING_VAULT_ADDRESS. Configure a dedicated Solana staking vault.',
+        );
+    }
+    return { address };
 }

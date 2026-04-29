@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 import GridScan from '@/components/ui/GridScan';
@@ -73,39 +73,28 @@ export default function WaitlistPage() {
     const [activeIdx, setActiveIdx] = useState(0);
     const [activeFaq, setActiveFaq] = useState<number | null>(null);
 
-    const containerRef = useRef<HTMLDivElement>(null);
-
     useEffect(() => {
         const handleScroll = () => {
-            if (containerRef.current) {
-                setScrolled(containerRef.current.scrollTop > 20);
-            }
+            setScrolled(window.scrollY > 20);
         };
-        const currentContainer = containerRef.current;
-        if (currentContainer) {
-            currentContainer.addEventListener('scroll', handleScroll);
-        }
+        window.addEventListener('scroll', handleScroll, { passive: true });
 
         const interval = setInterval(() => {
             setActiveIdx(prev => (prev + 1) % testimonials.length);
         }, 5000);
 
         return () => {
-            if (currentContainer) {
-                currentContainer.removeEventListener('scroll', handleScroll);
-            }
+            window.removeEventListener('scroll', handleScroll);
             clearInterval(interval);
         };
     }, []);
 
     const scrollToTop = () => {
-        if (containerRef.current) {
-            containerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
     return (
-        <div ref={containerRef} className="landing-layout h-full overflow-y-auto overflow-x-hidden scroll-smooth selection:bg-purple-500/30">
+        <div className="landing-layout overflow-x-hidden scroll-smooth selection:bg-purple-500/30">
 
             {/* ── Announcement Banner ─────────────────────────────────────── */}
             <div
@@ -175,6 +164,33 @@ export default function WaitlistPage() {
                                     aria-label="Open Bynomo litepaper"
                                 >
                                     Open Litepaper
+                                    <span className="group-hover:translate-x-0.5 transition-transform inline-block" aria-hidden>
+                                        ↗
+                                    </span>
+                                </Link>
+                                <span className="text-emerald-900 text-base sm:text-lg mx-3 sm:mx-6 shrink-0" aria-hidden>
+                                    ◆
+                                </span>
+                            </div>
+
+                            <div className="pointer-events-auto inline-flex items-center gap-2 sm:gap-4 px-8 sm:px-14" aria-hidden={i > 0}>
+                                <span className="text-base sm:text-xl shrink-0" aria-hidden>
+                                    🚀
+                                </span>
+                                <span className="text-[10px] sm:text-sm font-semibold text-white/80">
+                                    <span className="font-black text-emerald-300 text-xs sm:text-base" style={{ textShadow: '0 0 20px rgba(52,211,153,0.35)' }}>
+                                        BYNOMO staking
+                                    </span>{' '}
+                                    is now LIVE
+                                </span>
+                                <Link
+                                    href="/staking"
+                                    tabIndex={i > 0 ? -1 : undefined}
+                                    className="pointer-events-auto group inline-flex items-center gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-xs font-bold text-black transition-transform hover:scale-105 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-300 shrink-0"
+                                    style={{ background: 'linear-gradient(135deg, #6ee7b7, #34d399)' }}
+                                    aria-label="Open Bynomo staking"
+                                >
+                                    Open Staking
                                     <span className="group-hover:translate-x-0.5 transition-transform inline-block" aria-hidden>
                                         ↗
                                     </span>
@@ -490,6 +506,8 @@ export default function WaitlistPage() {
                     <div className="footer-meta-item">2026 © All rights reserved</div>
 
                     <div className="footer-link-group">
+                        <Link href="/litepaper" className="footer-meta-item">Litepaper</Link>
+                        <Link href="/staking" className="footer-meta-item">Staking</Link>
                         <a href="https://x.com/bynomofun" target="_blank" rel="noopener noreferrer" className="footer-meta-item">X / Twitter</a>
                         <a href="https://linktr.ee/bynomo.fun" target="_blank" rel="noopener noreferrer" className="footer-meta-item">Linktree</a>
                         <a href="https://github.com/AmaanSayyad/Bynomo" target="_blank" rel="noopener noreferrer" className="footer-meta-item">GitHub</a>

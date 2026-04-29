@@ -4,6 +4,7 @@ import { buildTreasuryBalanceSnapshot } from '@/lib/admin/treasuryBalanceSnapsho
 import {
   balanceTimesUsd,
   fetchCoingeckoTreasuryUsd,
+  fetchDexscreenerBynomoUsd,
   fetchPythUsdPartial,
   formatUsd,
   usdPerUnit,
@@ -19,10 +20,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const snapshot = await buildTreasuryBalanceSnapshot();
-    const [pyth, cg] = await Promise.all([fetchPythUsdPartial(), fetchCoingeckoTreasuryUsd()]);
+    const [pyth, cg, bynomoUsd] = await Promise.all([
+      fetchPythUsdPartial(),
+      fetchCoingeckoTreasuryUsd(),
+      fetchDexscreenerBynomoUsd(),
+    ]);
 
     const rows = snapshot.rows.map((r) => {
-      const unit = usdPerUnit(r.chain, r.asset, pyth, cg);
+      const unit = usdPerUnit(r.chain, r.asset, pyth, cg, bynomoUsd);
       const balanceUsd = balanceTimesUsd(r.balance, unit);
       return {
         ...r,
@@ -37,7 +42,7 @@ export async function GET(request: NextRequest) {
         generatedAt: snapshot.generatedAt,
         rows,
         usdNote:
-          'Testnet treasuries are hidden unless ADMIN_TREASURY_SHOW_TESTNET=true on the server. USD is indicative: Pyth (BNB, SOL, SUI, XLM, XTZ, NEAR, ETH) and CoinGecko (STRK, INIT, 0G). USDC ≈ $1. Push/Somnia native uses ETH as a rough proxy; OCT has no price feed.',
+          'Testnet treasuries are hidden unless ADMIN_TREASURY_SHOW_TESTNET=true on the server. USD is indicative: Pyth (BNB, SOL, SUI, XLM, XTZ, NEAR, ETH), CoinGecko (STRK, INIT, 0G), DexScreener (BYNOMO SPL). USDC ≈ $1. Push/Somnia native uses ETH as a rough proxy; OCT has no price feed.',
       },
       {
         headers: { 'Cache-Control': 'no-store' },

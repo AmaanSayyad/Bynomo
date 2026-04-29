@@ -126,13 +126,14 @@ function fmtAvgSession(seconds: number | undefined, sampleCount: number | undefi
     return `${r}s`;
 }
 
-/** Native token ticker for bet_history.network — not USD. */
+/** Native / ledger token ticker for bet_history.network (stored as house ledger currency: SOL, BYNOMO, USDC, …). */
 function tokenSymbolForNetwork(net: string): string {
     const u = net.trim().toUpperCase();
     if (u === 'SOMNIA' || u === 'STT') return 'STT';
     if (u === 'PUSH' || u === 'PC') return 'PC';
     if (u === 'BSC') return 'BNB';
     if (u === '0G' || u === 'ZG') return '0G';
+    if (u === 'BYNOMO') return 'BYNOMO';
     return u || '?';
 }
 
@@ -201,6 +202,7 @@ export default function AdminDashboard() {
     const [users, setUsers] = useState<User[]>([]);
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [pendingWithdrawals, setPendingWithdrawals] = useState<any[]>([]);
+    const [pendingStakingWithdrawals, setPendingStakingWithdrawals] = useState<any[]>([]);
     const [marketTokens, setMarketTokens] = useState<MarketToken[]>([]);
     const [gameHistory, setGameHistory] = useState<BetHistory[]>([]);
     const [modeAnalytics, setModeAnalytics] = useState<{ real: any[]; demo: any[]; combined: any[] } | null>(null);
@@ -246,8 +248,14 @@ export default function AdminDashboard() {
         switch (currency.toUpperCase()) {
             case 'BNB': return `https://bscscan.com/tx/${hash}`;
             case 'NEAR': return `https://nearblocks.io/txns/${hash}`;
-            case 'SOL': return `https://solscan.io/tx/${hash}`;
-            case 'SUI': return `https://suiscan.xyz/tx/${hash}`;
+            case 'SOL':
+            case 'BYNOMO':
+                return `https://solscan.io/tx/${hash}`;
+            case 'SUI':
+            case 'USDC':
+                return `https://suiscan.xyz/tx/${hash}`;
+            case 'APT':
+                return `https://explorer.aptoslabs.com/txn/${encodeURIComponent(hash)}`;
             case 'XTZ': return `https://tzkt.io/${hash}`;
             case 'XLM': return `https://stellar.expert/explorer/public/tx/${hash}`;
             case 'STRK': return `https://starkscan.co/tx/${hash}`;
@@ -376,7 +384,7 @@ export default function AdminDashboard() {
         setWaitlistError(null);
         try {
             const opts = { credentials: 'include' as const };
-            const [statsRes, usersRes, txRes, mktRes, gameRes, dangerRes, bannedRes, waitlistRes, accessCodesRes, pendingWithdrawalsRes, playerLedgerRes, modeRes] = await Promise.all([
+            const [statsRes, usersRes, txRes, mktRes, gameRes, dangerRes, bannedRes, waitlistRes, accessCodesRes, pendingWithdrawalsRes, pendingStakingRes, playerLedgerRes, modeRes] = await Promise.all([
                 fetch('/api/admin/stats', opts),
                 fetch('/api/admin/users', opts),
                 fetch('/api/admin/transactions', opts),
@@ -387,6 +395,7 @@ export default function AdminDashboard() {
                 fetch('/api/admin/waitlist', opts),
                 fetch('/api/admin/access-codes', opts),
                 fetch('/api/admin/withdrawal-requests/pending', opts),
+                fetch('/api/admin/staking-withdrawal-requests/pending', opts),
                 fetch('/api/admin/player-ledger', opts),
                 fetch('/api/admin/mode-analytics', opts),
             ]);
@@ -437,6 +446,10 @@ export default function AdminDashboard() {
             if (pendingWithdrawalsRes.ok) {
                 const data = await pendingWithdrawalsRes.json();
                 setPendingWithdrawals(data.requests || []);
+            }
+            if (pendingStakingRes.ok) {
+                const data = await pendingStakingRes.json();
+                setPendingStakingWithdrawals(data.requests || []);
             }
             if (playerLedgerRes.ok) {
                 const data = await playerLedgerRes.json();
@@ -586,6 +599,42 @@ export default function AdminDashboard() {
         }
     };
 
+    const acceptStakingWithdrawalRequest = async (requestId: number) => {
+        try {
+            const res = await fetch(`/api/admin/staking-withdrawal-requests/${requestId}/accept`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                await fetchData();
+            } else {
+                alert(data?.error || `Accept staking payout failed (HTTP ${res.status})`);
+            }
+        } catch (e) {
+            console.error('Failed to accept staking payout request:', e);
+        }
+    };
+
+    const rejectStakingWithdrawalRequest = async (requestId: number) => {
+        try {
+            const res = await fetch(`/api/admin/staking-withdrawal-requests/${requestId}/reject`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+                await fetchData();
+            } else {
+                alert(data?.error || `Reject staking payout failed (HTTP ${res.status})`);
+            }
+        } catch (e) {
+            console.error('Failed to reject staking payout request:', e);
+        }
+    };
+
     const marketSummary = useMemo(() => {
         const summary = Object.fromEntries(
             MARKET_CATEGORY_ORDER.map((cat) => [cat, 0]),
@@ -640,8 +689,14 @@ export default function AdminDashboard() {
         const addr = encodeURIComponent(address);
         switch (c) {
             case 'BNB':   return `https://bscscan.com/address/${addr}`;
-            case 'SOL':   return `https://solscan.io/account/${addr}`;
-            case 'SUI':   return `https://suiscan.xyz/mainnet/account/${addr}`;
+            case 'SOL':
+            case 'BYNOMO':
+                return `https://solscan.io/account/${addr}`;
+            case 'SUI':
+            case 'USDC':
+                return `https://suiscan.xyz/mainnet/account/${addr}`;
+            case 'APT':
+                return `https://explorer.aptoslabs.com/account/${addr}`;
             case 'XLM':   return `https://stellar.expert/explorer/public/account/${addr}`;
             case 'NEAR':  return `https://nearblocks.io/address/${addr}`;
             case 'STRK':  return `https://starkscan.co/contract/${addr}`;
@@ -649,7 +704,9 @@ export default function AdminDashboard() {
             case 'PC':
                 return getPushExplorerAddressUrl(address);
             case 'STT':   return `${process.env.NEXT_PUBLIC_SOMNIA_TESTNET_EXPLORER || 'https://shannon-explorer.somnia.network'}/address/${addr}`;
-            case 'ONE':   return `${process.env.NEXT_PUBLIC_ONECHAIN_EXPLORER || 'https://explorer-testnet.onechain.one'}/address/${addr}`;
+            case 'ONE':
+            case 'OCT':
+                return `${process.env.NEXT_PUBLIC_ONECHAIN_EXPLORER || 'https://explorer-testnet.onechain.one'}/address/${addr}`;
             case 'ZG':    return `${process.env.NEXT_PUBLIC_ZG_MAINNET_EXPLORER || 'https://chainscan.0g.ai'}/address/${addr}`;
             case 'INIT':  return `https://scan.initia.xyz/initiation-2/accounts/${addr}`;
             default:      return `https://bscscan.com/address/${addr}`;
@@ -1505,11 +1562,18 @@ export default function AdminDashboard() {
                                                 {[
                                                     { label: 'BNB', value: 'BNB' },
                                                     { label: 'SOL', value: 'SOL' },
+                                                    { label: 'BYNOMO', value: 'BYNOMO' },
                                                     { label: 'SUI', value: 'SUI' },
+                                                    { label: 'USDC', value: 'USDC' },
                                                     { label: 'XLM', value: 'XLM' },
                                                     { label: 'XTZ', value: 'XTZ' },
                                                     { label: 'NEAR', value: 'NEAR' },
                                                     { label: 'STRK', value: 'STRK' },
+                                                    { label: 'INIT', value: 'INIT' },
+                                                    { label: 'APT', value: 'APT' },
+                                                    { label: 'OCT', value: 'OCT' },
+                                                    { label: '0G', value: '0G' },
+                                                    { label: 'STT', value: 'STT' },
                                                     // Push Chain bets are stored with `network = 'PC'`
                                                     { label: 'PUSH', value: 'PC' },
                                                 ].map(({ label, value }) => (
@@ -1571,12 +1635,57 @@ export default function AdminDashboard() {
                                 )}
 
                                 {activeTab === 'financial' && (
-                                    <Table key="financial">
+                                    <div key="financial">
+                                        <div className="px-8 pt-6 pb-4 text-xs text-white/45 border-b border-white/5 leading-relaxed">
+                                            Manual review queues (listed first):{' '}
+                                            <span className="text-purple-300 font-semibold">staking vault payouts</span>{' '}
+                                            for matured positions whose principal is 8,000,000+ BYNOMO, then{' '}
+                                            <span className="text-amber-300 font-semibold">house withdrawals</span>.
+                                        </div>
+                                    <Table>
                                         <THead labels={['Time', 'Identity', 'Operation', 'Amount', 'Ref']} />
                                         <tbody>
                                             {loading ? <LoadingRow /> : (
                                                 <>
-                                                    {/* Pending withdrawals require manual acceptance */}
+                                                    {/* Pending staking vault payouts (large maturities) */}
+                                                    {pendingStakingWithdrawals && pendingStakingWithdrawals.length > 0 && pendingStakingWithdrawals.map((w: any) => (
+                                                        <tr key={`staking-${w.id}`} className="hover:bg-white/[0.02] transition-colors border-b border-white/5 last:border-0">
+                                                            <td className="px-8 py-6 text-xs font-mono">
+                                                                {w.requested_at ? new Date(w.requested_at).toLocaleString() : '---'}
+                                                            </td>
+                                                            <td className="px-8 py-6 font-mono text-xs">{shortenAddress(w.user_address)}</td>
+                                                            <td className="px-8 py-6">
+                                                                <span className="text-purple-300 bg-purple-400/10 px-2 py-0.5 rounded uppercase text-xs font-black border border-purple-400/25">
+                                                                    staking_vault_payout
+                                                                </span>
+                                                                <span className="ml-2 text-[10px] text-white/35 font-mono">pos #{w.position_id}</span>
+                                                            </td>
+                                                            <td className="px-8 py-6 text-white font-mono font-bold">
+                                                                +{Number(w.payout_amount).toLocaleString(undefined, { maximumFractionDigits: 2 })} BYNOMO
+                                                                <span className="block text-[10px] font-normal text-white/40">principal {Number(w.stake_amount).toLocaleString()}</span>
+                                                            </td>
+                                                            <td className="px-8 py-6 text-right">
+                                                                <div className="flex gap-2 justify-end">
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => acceptStakingWithdrawalRequest(w.id)}
+                                                                        className="px-2 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 rounded text-xs font-black uppercase hover:bg-emerald-500/20 transition-colors"
+                                                                    >
+                                                                        Pay from vault
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => rejectStakingWithdrawalRequest(w.id)}
+                                                                        className="px-2 py-1 bg-rose-500/10 border border-rose-500/20 text-rose-300 rounded text-xs font-black uppercase hover:bg-rose-500/20 transition-colors"
+                                                                    >
+                                                                        Reject
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+
+                                                    {/* Pending house-balance withdrawals require manual acceptance */}
                                                     {pendingWithdrawals && pendingWithdrawals.length > 0 && pendingWithdrawals.map((w: any) => (
                                                         <tr key={w.id} className="hover:bg-white/[0.02] transition-colors border-b border-white/5 last:border-0">
                                                             <td className="px-8 py-6 text-xs font-mono">
@@ -1644,6 +1753,7 @@ export default function AdminDashboard() {
                                             )}
                                         </tbody>
                                     </Table>
+                                    </div>
                                 )}
 
                                 {activeTab === 'markets' && (

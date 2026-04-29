@@ -11,8 +11,9 @@ import {
     SystemProgram,
     LAMPORTS_PER_SOL,
     TransactionExpiredBlockheightExceededError,
+    type ParsedTransactionWithMeta,
 } from '@solana/web3.js';
-import { getSolanaConfig } from './config';
+import { BYNOMO_SPL_MINT_MAINNET, getSolanaConfig, getSolanaStakingVaultConfig } from './config';
 import bs58 from 'bs58';
 
 /**
@@ -70,6 +71,68 @@ async function confirmSignatureWithPolling(
     throw new Error('SOL transaction confirmation timed out');
 }
 
+/** Same RPC preference order as `lib/solana/config.ts` — avoids flaky primary + indexing lag after send. */
+function solanaVerificationRpcEndpoints(configRpc: string): string[] {
+    const norm = configRpc.replace(/\/+$/, '');
+    const publicRpcs = [
+        norm,
+        'https://solana-rpc.publicnode.com',
+        'https://rpc.ankr.com/solana',
+        'https://solana-mainnet.rpc.extrnode.com',
+        'https://api.mainnet-beta.solana.com',
+    ];
+    return [...new Set(publicRpcs.filter(Boolean))];
+}
+
+function messageAccountKeysBase58(parsed: ParsedTransactionWithMeta): string[] {
+    const keys = parsed.transaction.message.accountKeys as unknown[];
+    return keys.map((k) => {
+        if (typeof k === 'string') return k;
+        const obj = k as { pubkey?: PublicKey; toBase58?: () => string };
+        if (obj.pubkey) return obj.pubkey.toBase58();
+        if (obj.toBase58) return obj.toBase58();
+        return '';
+    });
+}
+
+/**
+ * After wallet.sendTransaction, RPC nodes often return null briefly from getParsedTransaction.
+ * Poll with backoff across multiple endpoints until the tx is indexed or timeout.
+ */
+async function fetchParsedDepositTransaction(
+    signature: string,
+    primaryRpc: string,
+): Promise<ParsedTransactionWithMeta | null> {
+    const endpoints = solanaVerificationRpcEndpoints(primaryRpc);
+    const deadline = Date.now() + 12_000;
+    let delayMs = 350;
+
+    while (Date.now() < deadline) {
+        for (const rpc of endpoints) {
+            try {
+                const connection = new Connection(rpc, {
+                    commitment: 'confirmed',
+                    disableRetryOnRateLimit: true,
+                    confirmTransactionInitialTimeout: 15000,
+                });
+                const parsed = await connection.getParsedTransaction(signature, {
+                    maxSupportedTransactionVersion: 0,
+                    commitment: 'confirmed',
+                });
+                if (parsed?.meta && !parsed.meta.err) {
+                    return parsed;
+                }
+            } catch (err) {
+                console.warn(`[fetchParsedDepositTransaction] ${rpc}:`, err);
+            }
+        }
+        await new Promise((r) => setTimeout(r, delayMs));
+        delayMs = Math.min(delayMs + 100, 2000);
+    }
+
+    return null;
+}
+
 async function sendSignedTransactionAndConfirmPolling(
     connection: Connection,
     transaction: Transaction,
@@ -106,24 +169,26 @@ export async function verifySolanaDepositTx(
         const config = getSolanaConfig();
         if (!config.treasuryAddress) return false;
 
-        const connection = new Connection(config.rpcEndpoint, 'confirmed');
         const treasuryPub = new PublicKey(config.treasuryAddress);
         const userPub = new PublicKey(userAddress);
 
-        const parsed = await connection.getParsedTransaction(signature, {
-            maxSupportedTransactionVersion: 0,
-        });
+        const parsed = await fetchParsedDepositTransaction(signature, config.rpcEndpoint);
 
         if (!parsed || parsed.meta?.err) return false;
         const meta = parsed.meta;
         if (!meta) return false;
 
+        const accountKeys = messageAccountKeysBase58(parsed);
+
+        // Ensure the user's wallet signed this tx (prevents crediting using unrelated signatures).
+        const userSigned = parsed.transaction.message.accountKeys.some((entry: { pubkey: PublicKey; signer: boolean }) =>
+            entry.pubkey.equals(userPub) && entry.signer === true,
+        );
+        if (!userSigned) return false;
+
         if (!tokenMint) {
-            const keys = parsed.transaction.message.accountKeys.map((k) =>
-                typeof k === 'string' ? k : k.pubkey.toBase58(),
-            );
-            const treasuryIdx = keys.indexOf(treasuryPub.toBase58());
-            const userIdx = keys.indexOf(userPub.toBase58());
+            const treasuryIdx = accountKeys.indexOf(treasuryPub.toBase58());
+            const userIdx = accountKeys.indexOf(userPub.toBase58());
             if (treasuryIdx === -1 || userIdx === -1) return false;
             const preT = meta.preBalances[treasuryIdx];
             const postT = meta.postBalances[treasuryIdx];
@@ -132,27 +197,156 @@ export async function verifySolanaDepositTx(
             return gained >= minLamports;
         }
 
-        const { getMint } = await import('@solana/spl-token');
+        const {
+            getMint,
+            getAssociatedTokenAddressSync,
+            TOKEN_PROGRAM_ID,
+            TOKEN_2022_PROGRAM_ID,
+        } = await import('@solana/spl-token');
         const mintPk = new PublicKey(tokenMint);
-        const mintInfo = await getMint(connection, mintPk);
-        const decimals = mintInfo.decimals;
+
+        let decimals = 9;
+        try {
+            const mintInfo = await getMint(
+                new Connection(config.rpcEndpoint, 'confirmed'),
+                mintPk,
+                'confirmed',
+                TOKEN_PROGRAM_ID,
+            );
+            decimals = mintInfo.decimals;
+        } catch {
+            try {
+                const mintInfo = await getMint(
+                    new Connection(config.rpcEndpoint, 'confirmed'),
+                    mintPk,
+                    'confirmed',
+                    TOKEN_2022_PROGRAM_ID,
+                );
+                decimals = mintInfo.decimals;
+            } catch {
+                return false;
+            }
+        }
+
         const minRaw = BigInt(Math.floor(expectedAmount * Math.pow(10, decimals) * 0.99));
 
         const treasuryStr = treasuryPub.toBase58();
+        const treasuryAtaCandidates = new Set<string>();
+        for (const programId of [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID]) {
+            for (const allowOff of [false, true]) {
+                try {
+                    treasuryAtaCandidates.add(
+                        getAssociatedTokenAddressSync(mintPk, treasuryPub, allowOff, programId).toBase58(),
+                    );
+                } catch {
+                    /* skip */
+                }
+            }
+        }
+
         const preTb = meta.preTokenBalances || [];
         const postTb = meta.postTokenBalances || [];
 
-        const row = (rows: typeof postTb) =>
-            rows.find((b) => b.mint === tokenMint && b.owner === treasuryStr);
+        const matchesTreasuryDestination = (b: (typeof postTb)[number]) => {
+            if (b.mint !== tokenMint) return false;
+            const accPk = accountKeys[b.accountIndex];
+            const ownerOk = b.owner === treasuryStr;
+            const ataOk = accPk ? treasuryAtaCandidates.has(accPk) : false;
+            return ownerOk || ataOk;
+        };
 
-        const preRow = row(preTb);
-        const postRow = row(postTb);
+        const preRow = preTb.find(matchesTreasuryDestination);
+        const postRow = postTb.find(matchesTreasuryDestination);
         const preAmt = BigInt(preRow?.uiTokenAmount?.amount ?? '0');
         const postAmt = BigInt(postRow?.uiTokenAmount?.amount ?? '0');
         const gained = postAmt - preAmt;
         return gained >= minRaw;
     } catch (err) {
         console.error('[verifySolanaDepositTx]', err);
+        return false;
+    }
+}
+
+/**
+ * Verify a BYNOMO SPL stake transfer from user wallet to staking vault.
+ */
+export async function verifySolanaStakeToVaultTx(
+    signature: string,
+    userAddress: string,
+    expectedAmount: number,
+    vaultAddress: string,
+): Promise<boolean> {
+    if (!Number.isFinite(expectedAmount) || expectedAmount <= 0) return false;
+    try {
+        const config = getSolanaConfig();
+        const parsed = await fetchParsedDepositTransaction(signature, config.rpcEndpoint);
+        if (!parsed || parsed.meta?.err) return false;
+        const meta = parsed.meta;
+        if (!meta) return false;
+
+        const userPub = new PublicKey(userAddress);
+        const vaultPub = new PublicKey(vaultAddress);
+        const mintPk = new PublicKey(BYNOMO_SPL_MINT_MAINNET);
+
+        const userSigned = parsed.transaction.message.accountKeys.some((entry: { pubkey: PublicKey; signer: boolean }) =>
+            entry.pubkey.equals(userPub) && entry.signer === true,
+        );
+        if (!userSigned) return false;
+
+        const accountKeys = messageAccountKeysBase58(parsed);
+        const {
+            getMint,
+            getAssociatedTokenAddressSync,
+            TOKEN_PROGRAM_ID,
+            TOKEN_2022_PROGRAM_ID,
+        } = await import('@solana/spl-token');
+
+        let decimals = 9;
+        try {
+            const mintInfo = await getMint(new Connection(config.rpcEndpoint, 'confirmed'), mintPk, 'confirmed', TOKEN_PROGRAM_ID);
+            decimals = mintInfo.decimals;
+        } catch {
+            try {
+                const mintInfo = await getMint(new Connection(config.rpcEndpoint, 'confirmed'), mintPk, 'confirmed', TOKEN_2022_PROGRAM_ID);
+                decimals = mintInfo.decimals;
+            } catch {
+                return false;
+            }
+        }
+
+        const minRaw = BigInt(Math.floor(expectedAmount * Math.pow(10, decimals) * 0.99));
+        const vaultStr = vaultPub.toBase58();
+        const vaultAtaCandidates = new Set<string>();
+        for (const programId of [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID]) {
+            for (const allowOff of [false, true]) {
+                try {
+                    vaultAtaCandidates.add(
+                        getAssociatedTokenAddressSync(mintPk, vaultPub, allowOff, programId).toBase58(),
+                    );
+                } catch {
+                    /* skip */
+                }
+            }
+        }
+
+        const preTb = meta.preTokenBalances || [];
+        const postTb = meta.postTokenBalances || [];
+        const matchesVaultDestination = (b: (typeof postTb)[number]) => {
+            if (b.mint !== BYNOMO_SPL_MINT_MAINNET) return false;
+            const accPk = accountKeys[b.accountIndex];
+            const ownerOk = b.owner === vaultStr;
+            const ataOk = accPk ? vaultAtaCandidates.has(accPk) : false;
+            return ownerOk || ataOk;
+        };
+
+        const preRow = preTb.find(matchesVaultDestination);
+        const postRow = postTb.find(matchesVaultDestination);
+        const preAmt = BigInt(preRow?.uiTokenAmount?.amount ?? '0');
+        const postAmt = BigInt(postRow?.uiTokenAmount?.amount ?? '0');
+        const gained = postAmt - preAmt;
+        return gained >= minRaw;
+    } catch (err) {
+        console.error('[verifySolanaStakeToVaultTx]', err);
         return false;
     }
 }
@@ -177,6 +371,24 @@ export function getTreasuryKeypair(): Keypair {
     } catch (error) {
         throw new Error('Invalid SOL_TREASURY_SECRET_KEY format. Must be JSON array or base58.');
     }
+}
+
+function keypairFromSecret(secretKeyStr: string, envName: string): Keypair {
+    if (!secretKeyStr) {
+        throw new Error(`${envName} is not configured`);
+    }
+    try {
+        if (secretKeyStr.startsWith('[')) {
+            return Keypair.fromSecretKey(Uint8Array.from(JSON.parse(secretKeyStr)));
+        }
+        return Keypair.fromSecretKey(bs58.decode(secretKeyStr));
+    } catch {
+        throw new Error(`Invalid ${envName} format. Must be JSON array or base58.`);
+    }
+}
+
+export function getStakingVaultKeypair(): Keypair {
+    return keypairFromSecret(process.env.SOL_STAKING_VAULT_SECRET_KEY || '', 'SOL_STAKING_VAULT_SECRET_KEY');
 }
 
 /**
@@ -332,6 +544,144 @@ export async function transferTokenFromTreasury(
                 throw new Error('Token withdrawal temporarily unavailable due to insufficient treasury balance. Please contact support.');
             }
         }
+        throw error;
+    }
+}
+
+/**
+ * Transfer BYNOMO SPL from treasury wallet to dedicated staking vault.
+ */
+export async function transferBynomoTreasuryToStakingVault(amount: number): Promise<string> {
+    const vault = getSolanaStakingVaultConfig();
+    return transferTokenFromTreasury(vault.address, amount, BYNOMO_SPL_MINT_MAINNET);
+}
+
+/**
+ * Transfer BYNOMO SPL from staking vault wallet back to treasury wallet.
+ */
+export async function transferBynomoStakingVaultToTreasury(amount: number): Promise<string> {
+    try {
+        const {
+            getOrCreateAssociatedTokenAccount,
+            createTransferInstruction,
+            getMint,
+        } = await import('@solana/spl-token');
+
+        const config = getSolanaConfig();
+        const vault = getSolanaStakingVaultConfig();
+        const connection = new Connection(config.rpcEndpoint, 'confirmed');
+        const stakingVaultKeypair = getStakingVaultKeypair();
+        const treasuryPubkey = new PublicKey(config.treasuryAddress);
+        const mintPubkey = new PublicKey(BYNOMO_SPL_MINT_MAINNET);
+
+        if (stakingVaultKeypair.publicKey.toBase58() !== vault.address) {
+            throw new Error('SOL_STAKING_VAULT_SECRET_KEY does not match NEXT_PUBLIC_SOL_STAKING_VAULT_ADDRESS.');
+        }
+
+        const mintInfo = await getMint(connection, mintPubkey);
+        const decimals = mintInfo.decimals;
+
+        const fromTokenAccount = await getOrCreateAssociatedTokenAccount(
+            connection,
+            stakingVaultKeypair,
+            mintPubkey,
+            stakingVaultKeypair.publicKey,
+        );
+
+        const toTokenAccount = await getOrCreateAssociatedTokenAccount(
+            connection,
+            stakingVaultKeypair,
+            mintPubkey,
+            treasuryPubkey,
+        );
+
+        const tokenBalance = Number(fromTokenAccount.amount);
+        const requiredRaw = Math.floor(amount * Math.pow(10, decimals));
+        if (tokenBalance < requiredRaw) {
+            throw new Error(
+                `Staking vault has insufficient BYNOMO balance. Available: ${(tokenBalance / Math.pow(10, decimals)).toFixed(decimals)}, required: ${amount}.`,
+            );
+        }
+
+        const transaction = new Transaction().add(
+            createTransferInstruction(
+                fromTokenAccount.address,
+                toTokenAccount.address,
+                stakingVaultKeypair.publicKey,
+                requiredRaw,
+            ),
+        );
+
+        const signature = await sendSignedTransactionAndConfirmPolling(connection, transaction, [stakingVaultKeypair]);
+        return signature;
+    } catch (error) {
+        console.error('Failed to transfer BYNOMO from staking vault to treasury:', error);
+        throw error;
+    }
+}
+
+/**
+ * Transfer BYNOMO SPL from staking vault wallet directly to a user wallet.
+ */
+export async function transferBynomoFromStakingVault(
+    toAddress: string,
+    amount: number,
+): Promise<string> {
+    try {
+        const {
+            getOrCreateAssociatedTokenAccount,
+            createTransferInstruction,
+            getMint,
+        } = await import('@solana/spl-token');
+
+        const config = getSolanaConfig();
+        const vault = getSolanaStakingVaultConfig();
+        const connection = new Connection(config.rpcEndpoint, 'confirmed');
+        const stakingVaultKeypair = getStakingVaultKeypair();
+        const toPublicKey = new PublicKey(toAddress);
+        const mintPublicKey = new PublicKey(BYNOMO_SPL_MINT_MAINNET);
+
+        if (stakingVaultKeypair.publicKey.toBase58() !== vault.address) {
+            throw new Error('SOL_STAKING_VAULT_SECRET_KEY does not match NEXT_PUBLIC_SOL_STAKING_VAULT_ADDRESS.');
+        }
+
+        const mintInfo = await getMint(connection, mintPublicKey);
+        const decimals = mintInfo.decimals;
+
+        const fromTokenAccount = await getOrCreateAssociatedTokenAccount(
+            connection,
+            stakingVaultKeypair,
+            mintPublicKey,
+            stakingVaultKeypair.publicKey,
+        );
+
+        const toTokenAccount = await getOrCreateAssociatedTokenAccount(
+            connection,
+            stakingVaultKeypair,
+            mintPublicKey,
+            toPublicKey,
+        );
+
+        const tokenBalance = Number(fromTokenAccount.amount);
+        const requiredRaw = Math.floor(amount * Math.pow(10, decimals));
+        if (tokenBalance < requiredRaw) {
+            throw new Error(
+                `Staking vault has insufficient BYNOMO balance. Available: ${(tokenBalance / Math.pow(10, decimals)).toFixed(decimals)}, required: ${amount}.`,
+            );
+        }
+
+        const transaction = new Transaction().add(
+            createTransferInstruction(
+                fromTokenAccount.address,
+                toTokenAccount.address,
+                stakingVaultKeypair.publicKey,
+                requiredRaw,
+            ),
+        );
+
+        return sendSignedTransactionAndConfirmPolling(connection, transaction, [stakingVaultKeypair]);
+    } catch (error) {
+        console.error('Failed to transfer BYNOMO from staking vault to user:', error);
         throw error;
     }
 }

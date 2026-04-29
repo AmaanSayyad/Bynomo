@@ -3,6 +3,7 @@ import { isDemoBetHistoryRow, walletAddressSearchVariants } from '@/lib/admin/wa
 import { requireAdminAuth } from '@/lib/admin/requireAdminAuth';
 import { supabaseService as supabase } from '@/lib/supabase/serviceClient';
 import { canonicalHouseUserAddress } from '@/lib/wallet/canonicalAddress';
+import { isWithdrawalFrequencyReviewExemptWallet } from '@/lib/withdrawals/frequencyReviewExempt';
 
 const FREQUENCY_REVIEW_THRESHOLD = 10;
 
@@ -105,6 +106,7 @@ export async function GET(_request: NextRequest) {
         for (const stats of Object.values(wdMap)) {
             stats.total_count = stats.completed_count + stats.pending_count;
             if (stats.total_count < FREQUENCY_REVIEW_THRESHOLD) continue;
+            if (isWithdrawalFrequencyReviewExemptWallet(stats.user_address)) continue;
 
             // Enrich with deposit/balance/P&L data (include legacy EVM casing variants)
             const addrVariants = walletAddressSearchVariants(stats.user_address);

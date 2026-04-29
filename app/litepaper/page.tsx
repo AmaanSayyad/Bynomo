@@ -1,6 +1,7 @@
 'use client';
 
 import MermaidDiagram from '@/components/ui/MermaidDiagram';
+import Link from 'next/link';
 
 // NOTE: metadata moved to runtime UI in client mode.
 const DEMO_VIDEO_EMBED = 'https://www.youtube.com/embed/_YWvJihlqfE?si=j6r-dwwiH3V49_ws';
@@ -517,7 +518,59 @@ export default function LitepaperPage() {
           >
             Bynomo Litepaper
           </h1>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Link
+              href="/litepaper"
+              className="lp-chip rounded-full border border-white/20 px-4 py-2 text-xs font-black uppercase tracking-widest text-white hover:bg-white/10"
+            >
+              Litepaper
+            </Link>
+            <Link
+              href="/staking"
+              className="lp-chip rounded-full border border-white/20 px-4 py-2 text-xs font-black uppercase tracking-widest text-white/80 hover:bg-white/10"
+            >
+              Staking
+            </Link>
+            <a
+              href="https://bags.fm/apps/067c4ea3-94c8-47b7-b0c2-d80029f7fed8"
+              target="_blank"
+              rel="noreferrer"
+              className="lp-chip rounded-full border border-white/20 px-4 py-2 text-xs font-black uppercase tracking-widest text-white/80 hover:bg-white/10"
+            >
+              Bags
+            </a>
+            <a
+              href="https://linktr.ee/bynomo.fun"
+              target="_blank"
+              rel="noreferrer"
+              className="lp-chip rounded-full border border-white/20 px-4 py-2 text-xs font-black uppercase tracking-widest text-white/80 hover:bg-white/10"
+            >
+              Linktree
+            </a>
+            <a
+              href="https://x.com/bynomofun"
+              target="_blank"
+              rel="noreferrer"
+              className="lp-chip rounded-full border border-white/20 px-4 py-2 text-xs font-black uppercase tracking-widest text-white/80 hover:bg-white/10"
+            >
+              X
+            </a>
+            <a
+              href="https://t.me/bynomo"
+              target="_blank"
+              rel="noreferrer"
+              className="lp-chip rounded-full border border-white/20 px-4 py-2 text-xs font-black uppercase tracking-widest text-white/80 hover:bg-white/10"
+            >
+              Telegram
+            </a>
+            <a
+              href="https://discord.gg/5MAHQpWZ7b"
+              target="_blank"
+              rel="noreferrer"
+              className="lp-chip rounded-full border border-white/20 px-4 py-2 text-xs font-black uppercase tracking-widest text-white/80 hover:bg-white/10"
+            >
+              Discord
+            </a>
             <a
               href={PROJECT_GITHUB}
               target="_blank"
@@ -797,6 +850,9 @@ export default function LitepaperPage() {
           <div className="footer-meta-item">2026 © All rights reserved</div>
 
           <div className="footer-link-group">
+            <Link href="/staking" className="footer-meta-item">
+              Staking
+            </Link>
             <a href="https://x.com/bynomofun" target="_blank" rel="noopener noreferrer" className="footer-meta-item">
               X / Twitter
             </a>

@@ -67,7 +67,15 @@ export function getPlatformFeeWalletAddress(normalizedCurrency: string): string 
     return getEnvOptional('NEXT_PUBLIC_PLATFORM_FEE_WALLET_OCT');
   }
 
-  if (normalizedCurrency === 'SOL' || normalizedCurrency === 'BYNOMO') {
+  if (normalizedCurrency === 'BYNOMO') {
+    // SPL BYNOMO deposit/withdraw fee collector — defaults to the SOL collector when unset (historical behavior).
+    return (
+      getEnvOptional('NEXT_PUBLIC_PLATFORM_FEE_WALLET_BYNOMO') ||
+      getEnvOptional('NEXT_PUBLIC_PLATFORM_FEE_WALLET_SOL')
+    );
+  }
+
+  if (normalizedCurrency === 'SOL') {
     return getEnvOptional('NEXT_PUBLIC_PLATFORM_FEE_WALLET_SOL');
   }
 
