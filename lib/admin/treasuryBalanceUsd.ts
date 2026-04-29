@@ -3,44 +3,19 @@
  * Not financial advice — for ops visibility only.
  */
 
-import { PRICE_FEED_IDS } from '@/lib/utils/priceFeed';
-
-const HERMES = 'https://hermes.pyth.network';
+import { fetchPythLatestPrices } from '@/lib/server/pythLatest';
 
 const PYTH_SYMBOLS = ['BNB', 'SOL', 'SUI', 'XLM', 'XTZ', 'NEAR', 'ETH'] as const;
 type PythSym = (typeof PYTH_SYMBOLS)[number];
 
-function normalizeFeedId(id: string | undefined): string {
-  if (!id || typeof id !== 'string') return '';
-  return id.trim().replace(/^0x/i, '').toLowerCase();
-}
-
 export async function fetchPythUsdPartial(): Promise<Partial<Record<PythSym, number>>> {
-  const ids = PYTH_SYMBOLS.map((k) => {
-    const raw = PRICE_FEED_IDS[k];
-    return raw.startsWith('0x') ? raw : `0x${raw}`;
-  });
-  const qs = ids.map((id) => `ids%5B%5D=${encodeURIComponent(id)}`).join('&');
-  try {
-    const r = await fetch(`${HERMES}/v2/updates/price/latest?${qs}`, {
-      cache: 'no-store',
-      signal: AbortSignal.timeout(12_000),
-    });
-    if (!r.ok) return {};
-    const data = await r.json();
-    const out: Partial<Record<PythSym, number>> = {};
-    data.parsed?.forEach((feed: { id: string; price: { price: string; expo: number } }) => {
-      for (const sym of PYTH_SYMBOLS) {
-        if (normalizeFeedId(PRICE_FEED_IDS[sym]) === normalizeFeedId(feed.id)) {
-          out[sym] = Number(feed.price.price) * 10 ** feed.price.expo;
-          break;
-        }
-      }
-    });
-    return out;
-  } catch {
-    return {};
+  const prices = await fetchPythLatestPrices([...PYTH_SYMBOLS]);
+  const out: Partial<Record<PythSym, number>> = {};
+  for (const sym of PYTH_SYMBOLS) {
+    const px = Number(prices[sym]);
+    if (Number.isFinite(px) && px > 0) out[sym] = px;
   }
+  return out;
 }
 
 /** CoinGecko `simple/price` ids → usd */

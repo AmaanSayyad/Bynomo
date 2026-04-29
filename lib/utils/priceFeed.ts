@@ -4,7 +4,6 @@
  * Supports: BTC, SUI, SOL, AND CUSTOM TOKENS (BYNOMO)
  */
 
-import { HermesClient } from '@pythnetwork/hermes-client';
 
 // Pyth Network Price Feed IDs (Stable/Mainnet)
 export const PRICE_FEED_IDS = {
@@ -101,14 +100,8 @@ export const CUSTOM_TOKENS = {
 
 export type AssetType = keyof typeof PRICE_FEED_IDS | keyof typeof CUSTOM_TOKENS;
 
-// Pyth Hermes API endpoint (public, free to use)
-const HERMES_ENDPOINT = 'https://hermes.pyth.network';
-
-/** Hermes returns feed ids as lowercase hex without 0x; normalize for matching. */
-function normalizeFeedId(id: string | undefined): string {
-  if (!id || typeof id !== 'string') return '';
-  return id.trim().replace(/^0x/i, '').toLowerCase();
-}
+// Pyth prices are fetched through our backend route so Pro keys never reach the browser.
+const PYTH_INTERNAL_ENDPOINT = '/api/pyth/latest';
 
 // Cache the last successful multi-asset snapshot so the UI can render even if Hermes is slow.
 let lastAllPricesCache: Record<string, number> = {};
@@ -132,14 +125,12 @@ export interface PriceData {
 }
 
 export class PythPriceFeed {
-  private client: HermesClient;
   private intervalId: NodeJS.Timeout | null = null;
   private lastPrice: number | null = null;
   private isRunning: boolean = false;
   private asset: AssetType;
 
   constructor(asset: AssetType = 'BTC') {
-    this.client = new HermesClient(HERMES_ENDPOINT);
     this.asset = asset;
   }
 
@@ -167,33 +158,27 @@ export class PythPriceFeed {
         throw new Error('No pairs found for BYNOMO');
       }
 
-      // Default Pyth logic
-      const assetId = (PRICE_FEED_IDS as any)[this.asset];
-      const id = assetId.startsWith('0x') ? assetId : `0x${assetId}`;
-
-      const response = await fetch(
-        `${HERMES_ENDPOINT}/v2/updates/price/latest?ids%5B%5D=${id}`,
-        { signal: AbortSignal.timeout(5000) }
-      );
+      const endpoint =
+        typeof window === 'undefined'
+          ? `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${PYTH_INTERNAL_ENDPOINT}`
+          : PYTH_INTERNAL_ENDPOINT;
+      const response = await fetch(`${endpoint}?asset=${encodeURIComponent(this.asset)}`, {
+        signal: AbortSignal.timeout(5000),
+      });
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-      const priceFeeds = await response.json();
-      if (!priceFeeds || !priceFeeds.parsed || priceFeeds.parsed.length === 0) {
-        throw new Error('No price data received from Pyth Network');
+      const payload = await response.json();
+      const price = Number(payload?.prices?.[this.asset]);
+      if (!Number.isFinite(price) || price <= 0) {
+        throw new Error(`No price data received for ${this.asset}`);
       }
-
-      const priceFeed = priceFeeds.parsed[0];
-      const priceData = priceFeed.price;
-      const price = Number(priceData.price) * Math.pow(10, priceData.expo);
-      const confidence = Number(priceData.conf) * Math.pow(10, priceData.expo);
 
       this.lastPrice = price;
 
       return {
         price,
-        confidence,
-        timestamp: Number(priceData.publish_time),
-        expo: priceData.expo
+        confidence: 0,
+        timestamp: Date.now() / 1000,
+        expo: -8
       };
     } catch (error) {
       console.error(`Error fetching ${this.asset} price:`, error);
@@ -252,46 +237,27 @@ export class PythPriceFeed {
   }
 
   static async fetchAllPrices(): Promise<Record<string, number>> {
-    const ids = Object.values(PRICE_FEED_IDS).map(id => (id.startsWith('0x') ? id : `0x${id}`));
     const symbols = Object.keys(PRICE_FEED_IDS) as string[];
-    const idByNormalized = new Map<string, string>();
-    symbols.forEach((s) => {
-      idByNormalized.set(normalizeFeedId((PRICE_FEED_IDS as Record<string, string>)[s]), s);
-    });
     const results: Record<string, number> = {};
 
-    const parseHermesParsed = (parsed: any[]) => {
-      parsed.forEach((feed: any) => {
-        const sym = idByNormalized.get(normalizeFeedId(feed?.id));
-        if (!sym || !feed?.price) return;
-        const expo = Number(feed.price.expo);
-        const px = Number(feed.price.price) * Math.pow(10, Number.isFinite(expo) ? expo : -8);
-        if (Number.isFinite(px) && px > 0) results[sym] = px;
-      });
-    };
-
     try {
-      // Chunk requests: very long query strings occasionally fail on slow / strict proxies.
-      const chunkSize = 14;
-      const chunks: string[][] = [];
-      for (let i = 0; i < ids.length; i += chunkSize) {
-        chunks.push(ids.slice(i, i + chunkSize));
-      }
-      const chunkResponses = await Promise.allSettled(
-        chunks.map((chunk) => {
-          const queryString = chunk.map((id) => `ids%5B%5D=${encodeURIComponent(id)}`).join('&');
-          return fetch(`${HERMES_ENDPOINT}/v2/updates/price/latest?${queryString}`, {
-            // Keep each batch fast; don't let one slow request freeze the whole price loop.
-            signal: AbortSignal.timeout(6_000),
-          });
-        })
-      );
-      for (const settled of chunkResponses) {
-        if (settled.status !== 'fulfilled') continue;
-        const response = settled.value;
-        if (!response.ok) continue;
-        const data = await response.json();
-        if (data.parsed?.length) parseHermesParsed(data.parsed);
+      const endpoint =
+        typeof window === 'undefined'
+          ? `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}${PYTH_INTERNAL_ENDPOINT}`
+          : PYTH_INTERNAL_ENDPOINT;
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assets: symbols }),
+        signal: AbortSignal.timeout(6_000),
+      });
+      if (response.ok) {
+        const payload = await response.json();
+        const prices = payload?.prices || {};
+        for (const sym of symbols) {
+          const px = Number(prices[sym]);
+          if (Number.isFinite(px) && px > 0) results[sym] = px;
+        }
       }
 
       // 2. BYNOMO (DexScreener)

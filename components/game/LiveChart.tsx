@@ -608,8 +608,8 @@ export const LiveChart: React.FC<LiveChartProps> = ({ betAmount, setBetAmount })
     if (!yDomain.current.initialized) {
       yDomain.current = { min: targetMin, max: targetMax, initialized: true };
     } else {
-      // Smoothing factor (lower = smoother, higher = faster tracking)
-      const lerpFactor = 0.05;
+      // Faster axis tracking to avoid "flat/straight-line" feel on real feed moves.
+      const lerpFactor = 0.25;
       yDomain.current.min = yDomain.current.min + (targetMin - yDomain.current.min) * lerpFactor;
       yDomain.current.max = yDomain.current.max + (targetMax - yDomain.current.max) * lerpFactor;
     }
@@ -855,7 +855,7 @@ export const LiveChart: React.FC<LiveChartProps> = ({ betAmount, setBetAmount })
       const lineGenerator = line<{ timestamp: number, price: number }>()
         .x((d) => scales.xScale(d.timestamp))
         .y((d) => scales.yScale(d.price))
-        .curve(curveMonotoneX);
+        .curve(curveCatmullRom.alpha(0.5));
 
       return lineGenerator(pointsToRender) || '';
     } catch (err) {
@@ -1945,8 +1945,8 @@ export const LiveChart: React.FC<LiveChartProps> = ({ betAmount, setBetAmount })
                 transition={{ duration: 2, repeat: Infinity }}
                 className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)]"
               />
-              <span className="text-[9px] text-gray-400 font-black tracking-[0.2em] uppercase">
-                Powered by Pyth Hermes
+                <span className="text-[9px] text-gray-400 font-black tracking-[0.2em] uppercase">
+                Powered by Pyth
               </span>
             </div>
           </div>

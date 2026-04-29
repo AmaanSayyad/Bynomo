@@ -543,34 +543,11 @@ export const createGameSlice: StateCreator<any> = (set, get) => ({
     Object.entries(prices).forEach(([asset, price]) => {
       const assetKey = asset as AssetType;
       
-      // Get volatility multiplier based on asset type
-      const getVolatilityMultiplier = (a: AssetType) => {
-        // High volatility for Forex and Stocks/Indices to make them tradable on short timeframes
-        if (['EUR', 'GBP', 'JPY', 'AUD', 'CAD'].includes(a)) return 15.0;
-        
-        // Stocks and Indices
-        const stockSymbols = ['AAPL', 'GOOGL', 'AMZN', 'MSFT', 'NVDA', 'TSLA', 'META', 'NFLX', 'AMD', 'BABA', 'DIS', 'JPM', 'V', 'MA', 'PYPL', 'COIN', 'MSTR', 'UBER', 'PLTR', 'CRM', 'INTC', 'TSM', 'SPX', 'NDX', 'DJI'];
-        if (stockSymbols.includes(a)) return 18.0;
-        
-        // Commodities/Metals
-        const commoditySymbols = ['GOLD', 'SILVER', 'WTI', 'BRENT'];
-        if (commoditySymbols.includes(a)) return 10.0;
-        
-        // Default for Crypto (already volatile)
-        return 2.5;
-      };
-
-
-      const multiplier = getVolatilityMultiplier(assetKey);
       const lastRawPrice = updatedRawPrices[assetKey] || price;
       const rawDelta = price - lastRawPrice;
-      
-      const jitterSign = Math.random() > 0.5 ? 1 : -1;
-      const jitterAmount = price * (0.00004 + Math.random() * 0.00008) * jitterSign;
-      
-      const amplifiedDelta = (rawDelta * multiplier) + jitterAmount;
       const previousVirtualPrice = updatedAssetPrices[assetKey] || price;
-      const finalPrice = previousVirtualPrice + amplifiedDelta;
+      // Keep chart/settlement on true oracle-driven prices (no synthetic amplification/jitter).
+      const finalPrice = previousVirtualPrice + rawDelta;
 
       updatedAssetPrices[assetKey] = finalPrice;
       updatedRawPrices[assetKey] = price;
