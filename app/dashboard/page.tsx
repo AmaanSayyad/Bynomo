@@ -216,7 +216,17 @@ export default function AdminDashboard() {
     const [searchTerm, setSearchTerm] = useState('');
     // Default to Waitlist so collected emails are visible immediately.
     const [activeTab, setActiveTab] = useState<
-        'wallet_intel' | 'users' | 'financial' | 'markets' | 'gameplay' | 'danger' | 'referrals' | 'waitlist' | 'access_codes' | 'player_pnl'
+        | 'wallet_intel'
+        | 'users'
+        | 'financial'
+        | 'staking'
+        | 'markets'
+        | 'gameplay'
+        | 'danger'
+        | 'referrals'
+        | 'waitlist'
+        | 'access_codes'
+        | 'player_pnl'
     >('wallet_intel');
     const [playerPnl, setPlayerPnl] = useState<any[]>([]);
     const [pnlSort, setPnlSort] = useState<{ col: string; dir: 'asc' | 'desc' }>({ col: 'first_deposit_at', dir: 'asc' });
@@ -236,6 +246,9 @@ export default function AdminDashboard() {
     } | null>(null);
     const [treasuryLoading, setTreasuryLoading] = useState(false);
     const [treasuryError, setTreasuryError] = useState<string | null>(null);
+
+    const [stakingAnalytics, setStakingAnalytics] = useState<Record<string, unknown> | null>(null);
+    const [stakingAnalyticsError, setStakingAnalyticsError] = useState<string | null>(null);
 
     const [isAuthorized, setIsAuthorized] = useState(false);
     const [passwordInput, setPasswordInput] = useState('');
@@ -384,7 +397,22 @@ export default function AdminDashboard() {
         setWaitlistError(null);
         try {
             const opts = { credentials: 'include' as const };
-            const [statsRes, usersRes, txRes, mktRes, gameRes, dangerRes, bannedRes, waitlistRes, accessCodesRes, pendingWithdrawalsRes, pendingStakingRes, playerLedgerRes, modeRes] = await Promise.all([
+            const [
+                statsRes,
+                usersRes,
+                txRes,
+                mktRes,
+                gameRes,
+                dangerRes,
+                bannedRes,
+                waitlistRes,
+                accessCodesRes,
+                pendingWithdrawalsRes,
+                pendingStakingRes,
+                playerLedgerRes,
+                modeRes,
+                stakingAnalyticsRes,
+            ] = await Promise.all([
                 fetch('/api/admin/stats', opts),
                 fetch('/api/admin/users', opts),
                 fetch('/api/admin/transactions', opts),
@@ -398,9 +426,14 @@ export default function AdminDashboard() {
                 fetch('/api/admin/staking-withdrawal-requests/pending', opts),
                 fetch('/api/admin/player-ledger', opts),
                 fetch('/api/admin/mode-analytics', opts),
+                fetch('/api/admin/staking-analytics', opts),
             ]);
             // If any critical fetch returns 401, the session has expired
-            if (statsRes.status === 401) { setIsAuthorized(false); setSessionExpired(true); return; }
+            if (statsRes.status === 401 || stakingAnalyticsRes.status === 401) {
+                setIsAuthorized(false);
+                setSessionExpired(true);
+                return;
+            }
             if (statsRes.ok) setStats(await statsRes.json());
             if (usersRes.ok) {
                 const data = await usersRes.json();
@@ -457,6 +490,19 @@ export default function AdminDashboard() {
             }
             if (modeRes.ok) {
                 setModeAnalytics(await modeRes.json());
+            }
+            if (stakingAnalyticsRes.ok) {
+                const data = await stakingAnalyticsRes.json();
+                setStakingAnalytics(data);
+                setStakingAnalyticsError(null);
+            } else {
+                try {
+                    const data = await stakingAnalyticsRes.json();
+                    setStakingAnalyticsError(data?.error || `Staking analytics failed (HTTP ${stakingAnalyticsRes.status})`);
+                } catch {
+                    setStakingAnalyticsError(`Staking analytics failed (HTTP ${stakingAnalyticsRes.status})`);
+                }
+                setStakingAnalytics(null);
             }
         } catch (error) {
             console.error('Failed to fetch admin data:', error);
@@ -912,6 +958,7 @@ export default function AdminDashboard() {
                             <TabBtn active={activeTab === 'player_pnl'} onClick={() => setActiveTab('player_pnl')} label="Player P&L" />
                             <TabBtn active={activeTab === 'gameplay'} onClick={() => setActiveTab('gameplay')} label="Gameplay" />
                             <TabBtn active={activeTab === 'financial'} onClick={() => setActiveTab('financial')} label="Financials" />
+                            <TabBtn active={activeTab === 'staking'} onClick={() => setActiveTab('staking')} label="Staking" />
                             <TabBtn active={activeTab === 'markets'} onClick={() => setActiveTab('markets')} label="Inventory" />
                             <TabBtn active={activeTab === 'referrals'} onClick={() => setActiveTab('referrals')} label="Referrals" />
                             <TabBtn active={activeTab === 'waitlist'} onClick={() => setActiveTab('waitlist')} label="Waitlist" />
@@ -1755,6 +1802,304 @@ export default function AdminDashboard() {
                                     </Table>
                                     </div>
                                 )}
+
+                                {activeTab === 'staking' && (() => {
+                                    const fmtB = (n: unknown) =>
+                                        Number(n ?? 0).toLocaleString(undefined, { maximumFractionDigits: 4 });
+                                    const s = stakingAnalytics as Record<string, unknown> | null;
+                                    const summary = (s?.summary || {}) as Record<string, unknown>;
+                                    const active = (summary.active || {}) as Record<string, unknown>;
+                                    const claimed = (summary.claimed || {}) as Record<string, unknown>;
+                                    const cancelled = (summary.cancelled || {}) as Record<string, unknown>;
+                                    const wr = (summary.stakingWithdrawalRequests || {}) as Record<string, number>;
+                                    const byPool = (s?.byPool || {}) as Record<string, Record<string, number>>;
+                                    const maturity = (s?.maturityActive || {}) as Record<
+                                        string,
+                                        { positions: number; principal: number; estPayout: number }
+                                    >;
+                                    const pools = (Array.isArray(s?.pools) ? s?.pools : []) as {
+                                        pool_key: string;
+                                        lock_days: number;
+                                        apy_bps: number;
+                                        is_active?: boolean;
+                                    }[];
+                                    const poolMeta = new Map(pools.map((p) => [p.pool_key, p]));
+                                    const poolKeys = Object.keys(byPool).sort();
+                                    const q = searchTerm.trim().toLowerCase();
+                                    const recentPositions = (Array.isArray(s?.recentPositions) ? s?.recentPositions : []) as Record<
+                                        string,
+                                        unknown
+                                    >[];
+                                    const recentLedger = (Array.isArray(s?.recentLedger) ? s?.recentLedger : []) as Record<string, unknown>[];
+                                    const rowMatches = (row: Record<string, unknown>) => {
+                                        if (!q) return true;
+                                        return Object.values(row).some((v) =>
+                                            v != null && String(v).toLowerCase().includes(q),
+                                        );
+                                    };
+                                    const filteredPositions = recentPositions.filter(rowMatches);
+                                    const filteredLedger = recentLedger.filter(rowMatches);
+
+                                    const renderStakingWalletLink = (raw: unknown) => {
+                                        const addr = String(raw ?? '').trim();
+                                        if (!addr) return <span className="text-white/30">—</span>;
+                                        return (
+                                            <a
+                                                href={getExplorerAddressUrl(addr, 'BYNOMO')}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="font-mono text-xs text-cyan-400/90 hover:text-cyan-300 underline underline-offset-2 decoration-cyan-500/40"
+                                            >
+                                                {shortenAddress(addr)}
+                                            </a>
+                                        );
+                                    };
+
+                                    return (
+                                        <div key="staking" className="p-8 space-y-10 text-left">
+                                            <div className="space-y-2">
+                                                <p className="text-xs font-black uppercase tracking-widest text-white/35">Staking analytics</p>
+                                                <p className="text-sm text-white/60 max-w-3xl leading-relaxed">
+                                                    Active principal, estimated rewards (8 dp rounding, same as claim), maturity buckets, per-pool
+                                                    load, recent positions and ledger. Use global search to filter the two tables below.
+                                                </p>
+                                            </div>
+
+                                            {stakingAnalyticsError && (
+                                                <p className="text-sm text-rose-400 font-mono">{stakingAnalyticsError}</p>
+                                            )}
+
+                                            {loading && !s ? (
+                                                <p className="text-sm text-white/40 font-mono">Loading staking data…</p>
+                                            ) : s ? (
+                                                <>
+                                                    {Boolean(s.truncated) && (
+                                                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-200/90 font-mono">
+                                                            Position list capped at {String(s.positionsLoaded)} newest rows — totals may be incomplete.
+                                                        </div>
+                                                    )}
+
+                                                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                                        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-1">
+                                                            <p className="text-[10px] font-black uppercase tracking-widest text-white/35">Active positions</p>
+                                                            <p className="text-2xl font-black text-white tabular-nums">{fmtB(active.positions)}</p>
+                                                            <p className="text-xs text-white/40">
+                                                                {fmtB(active.distinctWallets)} distinct wallets
+                                                            </p>
+                                                        </div>
+                                                        <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] p-5 space-y-1">
+                                                            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-300/50">Principal locked</p>
+                                                            <p className="text-2xl font-black text-emerald-200 tabular-nums">{fmtB(active.principalBYNOMO)}</p>
+                                                            <p className="text-xs text-white/40">BYNOMO</p>
+                                                        </div>
+                                                        <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/[0.04] p-5 space-y-1">
+                                                            <p className="text-[10px] font-black uppercase tracking-widest text-cyan-300/50">Est. reward / payout</p>
+                                                            <p className="text-lg font-black text-cyan-200 tabular-nums">{fmtB(active.estimatedRewardBYNOMO)}</p>
+                                                            <p className="text-xs text-cyan-100/70 tabular-nums">payout {fmtB(active.estimatedPayoutBYNOMO)}</p>
+                                                        </div>
+                                                        <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 space-y-1">
+                                                            <p className="text-[10px] font-black uppercase tracking-widest text-white/35">Claimed / cancelled</p>
+                                                            <p className="text-sm text-white/80 tabular-nums">
+                                                                claimed {fmtB(claimed.positions)} · paid r/p{' '}
+                                                                {fmtB(claimed.rewardPaidBYNOMO)} / {fmtB(claimed.payoutPaidBYNOMO)}
+                                                            </p>
+                                                            <p className="text-xs text-white/40">cancelled {fmtB(cancelled.positions)}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="rounded-2xl border border-purple-500/25 bg-purple-500/[0.04] p-5 space-y-2">
+                                                        <p className="text-[10px] font-black uppercase tracking-widest text-purple-300/60">
+                                                            Staking vault payout requests (all statuses)
+                                                        </p>
+                                                        <p className="text-sm text-white/70 tabular-nums font-mono">
+                                                            pending {wr.pending ?? 0} · accepted {wr.accepted ?? 0} · rejected {wr.rejected ?? 0}
+                                                        </p>
+                                                    </div>
+
+                                                    <div>
+                                                        <p className="text-xs font-black uppercase tracking-widest text-white/35 mb-3">
+                                                            Active maturity (unlock window)
+                                                        </p>
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                            {(['unlockWithin7d', 'unlockWithin30d', 'unlockLater'] as const).map((key) => {
+                                                                const m = maturity[key] || { positions: 0, principal: 0, estPayout: 0 };
+                                                                const label =
+                                                                    key === 'unlockWithin7d'
+                                                                        ? '≤ 7 days'
+                                                                        : key === 'unlockWithin30d'
+                                                                          ? '8–30 days'
+                                                                          : '30+ days';
+                                                                return (
+                                                                    <div
+                                                                        key={key}
+                                                                        className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 space-y-1"
+                                                                    >
+                                                                        <p className="text-[10px] font-black uppercase tracking-widest text-white/35">{label}</p>
+                                                                        <p className="text-xl font-black text-white tabular-nums">{m.positions} pos</p>
+                                                                        <p className="text-xs text-white/45 tabular-nums">
+                                                                            principal {fmtB(m.principal)} · est payout {fmtB(m.estPayout)}
+                                                                        </p>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </div>
+
+                                                    <div>
+                                                        <p className="text-xs font-black uppercase tracking-widest text-white/35 mb-3">Per pool</p>
+                                                        <div className="overflow-x-auto rounded-2xl border border-white/10">
+                                                            <table className="w-full text-sm">
+                                                                <thead>
+                                                                    <tr className="border-b border-white/10 text-left text-[10px] font-black uppercase tracking-widest text-white/35">
+                                                                        <th className="px-4 py-3">Pool</th>
+                                                                        <th className="px-4 py-3">Lock / APY</th>
+                                                                        <th className="px-4 py-3 text-right">Active</th>
+                                                                        <th className="px-4 py-3 text-right">Wallets</th>
+                                                                        <th className="px-4 py-3 text-right">Principal</th>
+                                                                        <th className="px-4 py-3 text-right">Est payout</th>
+                                                                        <th className="px-4 py-3 text-right">Claimed</th>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    {poolKeys.map((pk) => {
+                                                                        const row = byPool[pk];
+                                                                        const meta = poolMeta.get(pk);
+                                                                        return (
+                                                                            <tr key={pk} className="border-b border-white/5 hover:bg-white/[0.02]">
+                                                                                <td className="px-4 py-3 font-mono text-xs text-white">{pk}</td>
+                                                                                <td className="px-4 py-3 text-white/50 text-xs">
+                                                                                    {meta ? `${meta.lock_days}d · ${(meta.apy_bps / 100).toFixed(2)}%` : '—'}
+                                                                                    {meta && meta.is_active === false && (
+                                                                                        <span className="ml-2 text-rose-300/80">inactive</span>
+                                                                                    )}
+                                                                                </td>
+                                                                                <td className="px-4 py-3 text-right font-mono tabular-nums">
+                                                                                    {row?.activePositions ?? 0}
+                                                                                </td>
+                                                                                <td className="px-4 py-3 text-right font-mono tabular-nums">
+                                                                                    {row?.activeWallets ?? 0}
+                                                                                </td>
+                                                                                <td className="px-4 py-3 text-right font-mono tabular-nums text-emerald-200/90">
+                                                                                    {fmtB(row?.activePrincipal)}
+                                                                                </td>
+                                                                                <td className="px-4 py-3 text-right font-mono tabular-nums text-cyan-200/80">
+                                                                                    {fmtB(row?.estimatedPayout)}
+                                                                                </td>
+                                                                                <td className="px-4 py-3 text-right text-xs text-white/45 font-mono">
+                                                                                    {row?.claimedPositions ?? 0} / paid{' '}
+                                                                                    {fmtB(row?.claimedPayoutPaid)}
+                                                                                </td>
+                                                                            </tr>
+                                                                        );
+                                                                    })}
+                                                                </tbody>
+                                                            </table>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="space-y-3">
+                                                        <p className="text-xs font-black uppercase tracking-widest text-white/35">
+                                                            Recent positions (newest in batch, filtered)
+                                                        </p>
+                                                        <Table>
+                                                            <THead
+                                                                labels={[
+                                                                    'Created',
+                                                                    'Wallet',
+                                                                    'Pool',
+                                                                    'Amount',
+                                                                    'Status',
+                                                                    'Unlock',
+                                                                ]}
+                                                            />
+                                                            <tbody>
+                                                                {filteredPositions.length === 0 ? (
+                                                                    <tr>
+                                                                        <td colSpan={6} className="px-8 py-8 text-center text-white/30 text-sm">
+                                                                            No rows match search.
+                                                                        </td>
+                                                                    </tr>
+                                                                ) : (
+                                                                    filteredPositions.map((p) => (
+                                                                        <tr
+                                                                            key={String(p.id)}
+                                                                            className="hover:bg-white/[0.02] border-b border-white/5"
+                                                                        >
+                                                                            <td className="px-8 py-4 text-xs font-mono text-white/50">
+                                                                                {p.created_at ? new Date(String(p.created_at)).toLocaleString() : '—'}
+                                                                            </td>
+                                                                            <td className="px-8 py-4">{renderStakingWalletLink(p.user_address)}</td>
+                                                                            <td className="px-8 py-4 font-mono text-xs text-white/80">{String(p.pool_key || '')}</td>
+                                                                            <td className="px-8 py-4 font-mono tabular-nums">{fmtB(p.amount)}</td>
+                                                                            <td className="px-8 py-4">
+                                                                                <span
+                                                                                    className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${
+                                                                                        p.status === 'active'
+                                                                                            ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10'
+                                                                                            : p.status === 'claimed'
+                                                                                              ? 'text-white/60 border-white/15 bg-white/5'
+                                                                                              : 'text-rose-300 border-rose-500/30 bg-rose-500/10'
+                                                                                    }`}
+                                                                                >
+                                                                                    {String(p.status || '')}
+                                                                                </span>
+                                                                            </td>
+                                                                            <td className="px-8 py-4 text-xs font-mono text-white/45">
+                                                                                {p.unlock_at ? new Date(String(p.unlock_at)).toLocaleString() : '—'}
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))
+                                                                )}
+                                                            </tbody>
+                                                        </Table>
+                                                    </div>
+
+                                                    <div className="space-y-3">
+                                                        <p className="text-xs font-black uppercase tracking-widest text-white/35">
+                                                            Recent ledger (filtered)
+                                                        </p>
+                                                        <Table>
+                                                            <THead labels={['Time', 'Wallet', 'Op', 'Position', 'Amount', 'Reward']} />
+                                                            <tbody>
+                                                                {filteredLedger.length === 0 ? (
+                                                                    <tr>
+                                                                        <td colSpan={6} className="px-8 py-8 text-center text-white/30 text-sm">
+                                                                            No rows match search.
+                                                                        </td>
+                                                                    </tr>
+                                                                ) : (
+                                                                    filteredLedger.map((row) => (
+                                                                        <tr
+                                                                            key={String(row.id)}
+                                                                            className="hover:bg-white/[0.02] border-b border-white/5"
+                                                                        >
+                                                                            <td className="px-8 py-4 text-xs font-mono text-white/50">
+                                                                                {row.created_at ? new Date(String(row.created_at)).toLocaleString() : '—'}
+                                                                            </td>
+                                                                            <td className="px-8 py-4">{renderStakingWalletLink(row.user_address)}</td>
+                                                                            <td className="px-8 py-4 text-xs font-black uppercase text-white/70">
+                                                                                {String(row.operation || '')}
+                                                                            </td>
+                                                                            <td className="px-8 py-4 font-mono text-xs">#{String(row.position_id ?? '')}</td>
+                                                                            <td className="px-8 py-4 font-mono tabular-nums">{fmtB(row.amount)}</td>
+                                                                            <td className="px-8 py-4 font-mono tabular-nums text-white/50">
+                                                                                {row.reward_amount != null ? fmtB(row.reward_amount) : '—'}
+                                                                            </td>
+                                                                        </tr>
+                                                                    ))
+                                                                )}
+                                                            </tbody>
+                                                        </Table>
+                                                    </div>
+
+                                                    <p className="text-[10px] text-white/25 font-mono">
+                                                        Generated {s.generatedAt ? new Date(String(s.generatedAt)).toLocaleString() : '—'}
+                                                    </p>
+                                                </>
+                                            ) : null}
+                                        </div>
+                                    );
+                                })()}
 
                                 {activeTab === 'markets' && (
                                     <div key="markets" className="p-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
