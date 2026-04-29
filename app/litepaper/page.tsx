@@ -3,7 +3,7 @@
 import MermaidDiagram from '@/components/ui/MermaidDiagram';
 
 // NOTE: metadata moved to runtime UI in client mode.
-const DEMO_VIDEO_EMBED = 'https://www.youtube.com/embed/t76ltZH9XSU?si=WNx_zsUJ9MJ6-J6l';
+const DEMO_VIDEO_EMBED = 'https://www.youtube.com/embed/_YWvJihlqfE?si=j6r-dwwiH3V49_ws';
 const PITCH_DECK_EMBED =
   'https://docs.google.com/presentation/d/1kDVnUCeJ-LZ3dfpo_YsSqen6qSzlgzHFWFk79Eodj9A/embed?start=false&loop=false&delayms=3000';
 const PROJECT_GITHUB = 'https://github.com/AmaanSayyad/Bynomo';
