@@ -159,7 +159,7 @@ export const GameBoard: React.FC = () => {
     APT:    0.1,
   };
   const isSolBynomoBlitz = network === 'SOL' && (selectedCurrency || 'SOL') === 'BYNOMO';
-  const SOL_BYNOMO_BLITZ_FEE = 1;
+  const SOL_BYNOMO_BLITZ_FEE = 8_000_000;
   const blitzEntryFee = isSolBynomoBlitz
     ? SOL_BYNOMO_BLITZ_FEE
     : ((network ? BLITZ_FEES[network] : undefined) ?? 0.01);
