@@ -495,7 +495,7 @@ export default function StakingPage() {
               <div key={pool.pool_key} className="rounded-xl border border-white/10 bg-black/30 p-4 shadow-[0_10px_40px_-24px_rgba(168,85,247,0.45)]">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-black text-white">{pool.lock_days} Days</h2>
-                  <span className="rounded-full bg-purple-500/20 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-purple-300">
+                  <span className="rounded-full bg-purple-500/20 px-3 py-1.5 text-xs font-black uppercase tracking-wider text-purple-200">
                     {(pool.apy_bps / 100).toFixed(2)}% APY
                   </span>
                 </div>
