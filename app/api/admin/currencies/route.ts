@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PRICE_FEED_IDS } from '@/lib/utils/priceFeed';
 import { requireAdminAuth } from '@/lib/admin/requireAdminAuth';
+import { fetchPythLatestPrices } from '@/lib/server/pythLatest';
 
 export async function GET(request: NextRequest) {
     const deny = requireAdminAuth(request);
@@ -24,25 +25,7 @@ export async function GET(request: NextRequest) {
             return { symbol, pythId: id, category };
         });
 
-        // 2. Fetch current prices for all from Pyth Hermes
-        const ids = Object.values(PRICE_FEED_IDS).map(id => id.startsWith('0x') ? id : `0x${id}`);
-        const queryString = ids.map(id => `ids%5B%5D=${id}`).join('&');
-        const response = await fetch(`https://hermes.pyth.network/v2/updates/price/latest?${queryString}`);
-
-        let currentPrices: Record<string, number> = {};
-        if (response.ok) {
-            const priceData = await response.json();
-            priceData.parsed?.forEach((feed: any) => {
-                // Find which symbol this ID belongs to
-                const symbol = Object.keys(PRICE_FEED_IDS).find(
-                    s => PRICE_FEED_IDS[s as keyof typeof PRICE_FEED_IDS].replace('0x', '') === feed.id
-                );
-                if (symbol) {
-                    const price = Number(feed.price.price) * Math.pow(10, feed.price.expo);
-                    currentPrices[symbol] = price;
-                }
-            });
-        }
+        const currentPrices = await fetchPythLatestPrices(Object.keys(PRICE_FEED_IDS));
 
         return NextResponse.json({
             tokens: tokens.map(t => ({
