@@ -274,6 +274,7 @@ export async function buildTreasuryBalanceSnapshot(): Promise<{
 
   // Solana
   const solTreasury = process.env.NEXT_PUBLIC_SOL_TREASURY_ADDRESS?.trim();
+  const BYNOMO_MAINNET_MINT = 'Faw8wwB6MnyAm9xG3qeXgN1isk9agXBoaRZX9Ma8BAGS';
   const solRpc =
     process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'mainnet-beta'
       ? 'https://api.mainnet-beta.solana.com'
@@ -287,6 +288,24 @@ export async function buildTreasuryBalanceSnapshot(): Promise<{
         asset: 'SOL',
         explorerUrl: `https://solscan.io/account/${encodeURIComponent(solTreasury)}`,
         fetch: () => solNativeLamports(solRpc, solTreasury),
+      }),
+    );
+  }
+
+  // Solana — SPL BYNOMO balance in the operational treasury wallet.
+  // Keep this tied to NEXT_PUBLIC_SOL_TREASURY_ADDRESS (the wallet controlled by SOL_TREASURY_SECRET_KEY).
+  if (shouldQuerySolanaTreasury() && solTreasury) {
+    tasks.push(
+      row({
+        chain: 'SOL',
+        label: 'Solana — BYNOMO treasury',
+        address: solTreasury,
+        asset: 'BYNOMO',
+        explorerUrl: `https://solscan.io/account/${encodeURIComponent(solTreasury)}`,
+        fetch: async () => {
+          const { getTokenBalance } = await import('@/lib/solana/client');
+          return getTokenBalance(solTreasury, BYNOMO_MAINNET_MINT);
+        },
       }),
     );
   }

@@ -63,19 +63,52 @@ export async function fetchCoingeckoTreasuryUsd(): Promise<Record<string, number
   }
 }
 
+const BYNOMO_SOLANA_MINT = 'Faw8wwB6MnyAm9xG3qeXgN1isk9agXBoaRZX9Ma8BAGS';
+
+/** USD price for SPL BYNOMO (not on Pyth); DexScreener pair price. */
+export async function fetchDexscreenerBynomoUsd(): Promise<number | null> {
+  try {
+    const r = await fetch(
+      `https://api.dexscreener.com/latest/dex/tokens/${BYNOMO_SOLANA_MINT}`,
+      { cache: 'no-store', signal: AbortSignal.timeout(10_000) },
+    );
+    if (!r.ok) return null;
+    const data = (await r.json()) as {
+      pairs?: { priceUsd?: string; liquidity?: { usd?: number } }[];
+    };
+    const pairs = Array.isArray(data?.pairs) ? data.pairs : [];
+    const withPrice = pairs
+      .map((p) => {
+        const price = p?.priceUsd !== undefined ? parseFloat(p.priceUsd) : NaN;
+        const liq = Number(p?.liquidity?.usd ?? 0);
+        return { price, liq };
+      })
+      .filter((p) => Number.isFinite(p.price) && p.price > 0);
+    if (withPrice.length === 0) return null;
+    // Prefer the most liquid pair to avoid stale/illiquid pool prices.
+    withPrice.sort((a, b) => b.liq - a.liq);
+    return withPrice[0]!.price;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * USD per 1 unit of the on-chain asset (null if unknown).
+ * `bynomoUsd` — SPL BYNOMO only (DexScreener).
  */
 export function usdPerUnit(
   chain: string,
   asset: string,
   pyth: Partial<Record<PythSym, number>>,
   cg: Record<string, number>,
+  bynomoUsd?: number | null,
 ): number | null {
   if (asset === 'USDC') return 1;
 
   if (chain === 'BNB' && asset === 'BNB') return pyth.BNB ?? null;
   if (chain === 'SOL' && asset === 'SOL') return pyth.SOL ?? null;
+  if (chain === 'SOL' && asset === 'BYNOMO') return bynomoUsd ?? null;
   if (chain === 'SUI' && asset === 'SUI') return pyth.SUI ?? null;
   if (chain === 'SUI' && asset === 'USDC') return 1;
   if (chain === 'XLM' && asset === 'XLM') return pyth.XLM ?? null;
@@ -97,6 +130,7 @@ export function usdPerUnit(
 
 export function formatUsd(n: number | null): string {
   if (n === null || !Number.isFinite(n)) return '—';
+  if (n > 0 && n < 0.01) return '<$0.01';
   if (n >= 1e9) return `$${n.toExponential(2)}`;
   return `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }

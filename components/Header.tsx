@@ -63,6 +63,7 @@ export function Header() {
                 {pathname === '/' && (
                     <div className="hidden xl:flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest text-white/55">
                         <Link href="/litepaper" className="hover:text-white transition-colors">Litepaper</Link>
+                        <Link href="/staking" className="hover:text-white transition-colors">Staking</Link>
                         <a href="https://bags.fm/apps/067c4ea3-94c8-47b7-b0c2-d80029f7fed8" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Bags</a>
                         <a href="https://linktr.ee/bynomo.fun" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Linktree</a>
                         <a href="https://x.com/bynomofun" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">X</a>

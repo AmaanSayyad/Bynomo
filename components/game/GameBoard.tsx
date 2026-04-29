@@ -23,6 +23,7 @@ import { useSomniaReactivity } from '@/lib/hooks/useSomniaReactivity';
 
 
 export const GameBoard: React.FC = () => {
+  const BYNOMO_MINT = 'Faw8wwB6MnyAm9xG3qeXgN1isk9agXBoaRZX9Ma8BAGS';
   const {
     address,
     isConnected,
@@ -86,6 +87,57 @@ export const GameBoard: React.FC = () => {
   const [isValidating, setIsValidating] = useState(false);
   const [accessError, setAccessError] = useState<string | null>(null);
   const [addressCopied, setAddressCopied] = useState(false);
+  const [walletPanelBalance, setWalletPanelBalance] = useState<number | null>(null);
+
+  // Keep wallet-balance value in sync with the SOL/BYNOMO toggle.
+  // Without this, the numeric value can remain from the previous symbol
+  // (e.g. SOL amount shown with BYNOMO label) until another action triggers refresh.
+  useEffect(() => {
+    if (!isConnected || !address || !network) return;
+    if (network !== 'SOL' && network !== 'SUI') return;
+    void refreshWalletBalance();
+  }, [selectedCurrency, isConnected, address, network, refreshWalletBalance]);
+
+  // Read wallet-panel balance directly for toggle-sensitive currencies.
+  // This prevents stale SOL values being shown when BYNOMO is selected.
+  useEffect(() => {
+    let cancelled = false;
+    const loadWalletPanelBalance = async () => {
+      if (!isConnected || !address || !network) {
+        if (!cancelled) setWalletPanelBalance(null);
+        return;
+      }
+      try {
+        if (network === 'SOL') {
+          const { getSOLBalance, getTokenBalance } = await import('@/lib/solana/client');
+          const symbol = selectedCurrency || 'SOL';
+          const bal = symbol === 'BYNOMO'
+            ? await getTokenBalance(address, BYNOMO_MINT)
+            : await getSOLBalance(address);
+          if (!cancelled) setWalletPanelBalance(bal);
+          return;
+        }
+
+        // For other networks use the unified store value.
+        if (!cancelled) setWalletPanelBalance(walletBalance);
+      } catch (e) {
+        // Never fall back to global walletBalance for Solana+BYNOMO — store may still hold SOL.
+        if (!cancelled) {
+          const sym = selectedCurrency || 'SOL';
+          if (network === 'SOL' && sym === 'BYNOMO') {
+            setWalletPanelBalance(0);
+          } else {
+            setWalletPanelBalance(walletBalance);
+          }
+        }
+      }
+    };
+
+    void loadWalletPanelBalance();
+    return () => {
+      cancelled = true;
+    };
+  }, [isConnected, address, network, selectedCurrency]);
 
   // Unified balance and currency
   const currencySymbol = network === 'SOL' ? (selectedCurrency || 'SOL') : network === 'SUI' ? (selectedCurrency === 'USDC' ? 'USDC' : 'SUI') : network === 'XLM' ? 'XLM' : network === 'XTZ' ? 'XTZ' : network === 'NEAR' ? 'NEAR' : network === 'STRK' ? 'STRK' : network === 'PUSH' ? 'PC' : network === 'SOMNIA' ? 'STT' : network === 'OCT' ? 'OCT' : network === 'ZG' ? '0G' : network === 'INIT' ? 'INIT' : network === 'APT' ? 'APT' : 'BNB';
@@ -106,11 +158,15 @@ export const GameBoard: React.FC = () => {
     INIT:   0.01,
     APT:    0.1,
   };
-  const blitzEntryFee = (network ? BLITZ_FEES[network] : undefined) ?? 0.01;
+  const isSolBynomoBlitz = network === 'SOL' && (selectedCurrency || 'SOL') === 'BYNOMO';
+  const SOL_BYNOMO_BLITZ_FEE = 1;
+  const blitzEntryFee = isSolBynomoBlitz
+    ? SOL_BYNOMO_BLITZ_FEE
+    : ((network ? BLITZ_FEES[network] : undefined) ?? 0.01);
 
   // Blitz entry is always paid in the chain native token (Sui path uses native SUI, not USDC house ledger).
   const blitzEntryCurrencySymbol =
-    network === 'SOL' ? 'SOL'
+    network === 'SOL' ? (isSolBynomoBlitz ? 'BYNOMO' : 'SOL')
       : network === 'SUI' ? 'SUI'
         : network === 'XLM' ? 'XLM'
           : network === 'XTZ' ? 'XTZ'
@@ -150,12 +206,23 @@ export const GameBoard: React.FC = () => {
       })
 
       if (network === 'SOL') {
-        const { getSolanaConnection, buildSolTransferTransaction } = await import('@/lib/solana/client');
+        const {
+          getSolanaConnection,
+          buildSolTransferTransaction,
+          buildTokenTransferTransaction,
+        } = await import('@/lib/solana/client');
         const connection = getSolanaConnection();
-        const feeWallet = process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET_SOL;
-        if (!feeWallet) throw new Error('SOL fee collector wallet not configured');
-        const transaction = await buildSolTransferTransaction(blitzEntryFee, address, feeWallet);
-        toast.info(`Confirming ${blitzEntryFee} SOL Blitz Entry...`);
+        const payingWithBynomo = (selectedCurrency || 'SOL') === 'BYNOMO';
+        const feeWallet = payingWithBynomo
+          ? (process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET_BYNOMO || process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET_SOL)
+          : process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET_SOL;
+        if (!feeWallet) {
+          throw new Error(`${payingWithBynomo ? 'BYNOMO' : 'SOL'} fee collector wallet not configured`);
+        }
+        const transaction = payingWithBynomo
+          ? await buildTokenTransferTransaction(blitzEntryFee, address, feeWallet, BYNOMO_MINT)
+          : await buildSolTransferTransaction(blitzEntryFee, address, feeWallet);
+        toast.info(`Confirming ${blitzEntryFee} ${payingWithBynomo ? 'BYNOMO' : 'SOL'} Blitz Entry...`);
         const signature = await sendSolanaTransaction(transaction, connection);
         if (process.env.NODE_ENV === 'development') {
           console.log("Solana Blitz confirmed");
@@ -535,7 +602,7 @@ export const GameBoard: React.FC = () => {
     }
   };
 
-  const activeWalletBalance = walletBalance;
+  const activeWalletBalance = walletPanelBalance ?? walletBalance;
 
   const formatAddress = (addr: string) => {
     if (!addr || addr.length <= 10) return addr || '---';
@@ -1000,6 +1067,26 @@ export const GameBoard: React.FC = () => {
                     </div>
 
                     <div className="space-y-3">
+                      {network === 'SOL' && (
+                        <div className="flex items-center justify-between gap-2 p-2 bg-black/40 border border-white/5 rounded-xl">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-gray-500">Pay in</span>
+                          <div className="flex gap-1 bg-black/50 p-0.5 rounded-lg border border-white/5">
+                            {['SOL', 'BYNOMO'].map((c) => (
+                              <button
+                                key={c}
+                                onClick={() => setSelectedCurrency(c)}
+                                className={`px-2 py-1 rounded-md text-[9px] font-black transition-all ${(selectedCurrency || 'SOL') === c
+                                  ? 'bg-orange-500 text-white'
+                                  : 'text-gray-500 hover:text-gray-300'
+                                  }`}
+                              >
+                                {c}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <div className="p-3 bg-white/5 rounded-xl border border-white/5">
                         <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">
                           <span>Current Multiplier Boost</span>

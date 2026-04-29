@@ -56,6 +56,12 @@ export function HeaderMenu() {
             sublabel: 'Global Hall of Fame',
             href: '/leaderboard',
             accent: 'bg-yellow-500'
+        },
+        {
+            label: 'Staking',
+            sublabel: 'Lock BYNOMO for rewards',
+            href: '/staking',
+            accent: 'bg-fuchsia-500'
         }
     ];
 

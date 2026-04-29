@@ -34,9 +34,11 @@ export const DepositModal: React.FC<DepositModalProps> = ({
   onSuccess,
   onError
 }) => {
+  const BYNOMO_MINT = 'Faw8wwB6MnyAm9xG3qeXgN1isk9agXBoaRZX9Ma8BAGS';
   const [amount, setAmount] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [displayWalletBalance, setDisplayWalletBalance] = useState<number>(0);
 
   const { wallets: privyWallets } = useWallets();
   const { authenticated, user } = usePrivy();
@@ -79,6 +81,45 @@ export const DepositModal: React.FC<DepositModalProps> = ({
     }
   }, [isOpen]);
 
+  // Keep modal wallet balance accurate for currency toggles (especially SOL/BYNOMO).
+  useEffect(() => {
+    let cancelled = false;
+    const syncDisplayedBalance = async () => {
+      if (!isOpen || !address || !network) {
+        if (!cancelled) setDisplayWalletBalance(0);
+        return;
+      }
+
+      try {
+        if (network === 'SOL') {
+          const { getSOLBalance, getTokenBalance } = await import('@/lib/solana/client');
+          const bal =
+            selectedCurrency === 'BYNOMO'
+              ? await getTokenBalance(address, BYNOMO_MINT)
+              : await getSOLBalance(address);
+          if (!cancelled) setDisplayWalletBalance(bal);
+          return;
+        }
+
+        // Non-Solana networks continue to use store-fed walletBalance.
+        if (!cancelled) setDisplayWalletBalance(walletBalance);
+      } catch {
+        if (!cancelled) {
+          if (network === 'SOL' && selectedCurrency === 'BYNOMO') {
+            setDisplayWalletBalance(0);
+          } else {
+            setDisplayWalletBalance(walletBalance);
+          }
+        }
+      }
+    };
+
+    void syncDisplayedBalance();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, address, network, selectedCurrency, walletBalance]);
+
   const validateAmount = (value: string): string | null => {
     if (!value || value.trim() === '') {
       return 'Please enter an amount';
@@ -93,7 +134,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
       return 'Amount must be greater than zero';
     }
 
-    if (numValue > walletBalance) {
+    if (numValue > displayWalletBalance) {
       return `Insufficient ${currencySymbol} balance`;
     }
 
@@ -114,10 +155,10 @@ export const DepositModal: React.FC<DepositModalProps> = ({
   };
 
   const handleMaxClick = () => {
-    if (walletBalance > 0) {
+    if (displayWalletBalance > 0) {
       // Leave a small amount for gas (native SUI needs buffer; USDC on SUI doesn't)
       const gasBuffer = network === 'SUI' ? (suiToken === 'SUI' ? 0.01 : 0) : network === 'SOL' ? 0.001 : network === 'APT' ? 0.001 : 0.005;
-      const maxAmount = Math.max(0, walletBalance - gasBuffer);
+      const maxAmount = Math.max(0, displayWalletBalance - gasBuffer);
       setAmount(maxAmount.toFixed(4));
       setError(null);
     }
@@ -155,14 +196,13 @@ export const DepositModal: React.FC<DepositModalProps> = ({
       } else if (network === 'SOL') {
         if (!solanaPublicKey) throw new Error('Solana wallet not connected');
 
-        const { buildDepositTransaction, buildTokenDepositTransaction, getSolanaConnection } = await import('@/lib/solana/client');
+        const { buildDepositTransaction, buildTokenDepositTransaction, getSolanaConnection, waitForSolanaSignatureConfirmed } = await import('@/lib/solana/client');
         const connection = getSolanaConnection();
-        const selectedCurrency = useOverflowStore.getState().selectedCurrency;
+          const selectedCurrency = useOverflowStore.getState().selectedCurrency;
 
         let transaction;
         if (selectedCurrency === 'BYNOMO') {
-          const BYNOMO_MINT = 'Faw8wwB6MnyAm9xG3qeXgN1isk9agXBoaRZX9Ma8BAGS';
-          transaction = await buildTokenDepositTransaction(depositAmount, address, BYNOMO_MINT);
+            transaction = await buildTokenDepositTransaction(depositAmount, address, BYNOMO_MINT);
         } else {
           transaction = await buildDepositTransaction(depositAmount, address);
         }
@@ -170,6 +210,8 @@ export const DepositModal: React.FC<DepositModalProps> = ({
         toast.info('Please confirm the transaction in your Solana wallet...');
 
         txHash = await signAndSendSolana(transaction, connection);
+        toast.info('Waiting for on-chain confirmation...');
+        await waitForSolanaSignatureConfirmed(connection, txHash);
       } else if (network === 'NEAR') {
         const { depositNEAR } = await import('@/lib/near/wallet');
         toast.info('Please confirm the transaction in your NEAR wallet...');
@@ -464,7 +506,7 @@ export const DepositModal: React.FC<DepositModalProps> = ({
             {network === 'STRK' && <img src="/logos/starknet-strk-logo.svg" alt="STRK" className="w-5 h-5" />}
             {network === 'PUSH' && <img src="/logos/push-logo.png" alt="PC" className="w-5 h-5" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />}
             {network === 'APT' && <img src="/logos/aptos-logo.png" alt="APT" className="w-5 h-5" onError={(e) => { (e.target as HTMLImageElement).src = 'https://cryptologos.cc/logos/aptos-apt-logo.png'; }} />}
-            {walletBalance.toFixed(4)} {currencySymbol}
+            {displayWalletBalance.toFixed(4)} {currencySymbol}
           </p>
         </div>
 

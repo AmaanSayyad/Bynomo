@@ -13,6 +13,7 @@ import { isWalletGloballyBanned } from '@/lib/bans/walletBan';
 import { walletAddressSearchVariants } from '@/lib/admin/walletAddressVariants';
 import { canonicalHouseUserAddress } from '@/lib/wallet/canonicalAddress';
 import { assertBalanceApiAuthorized } from '@/lib/balance/balanceApiGuard';
+import { isWithdrawalFrequencyReviewExemptWallet } from '@/lib/withdrawals/frequencyReviewExempt';
 
 interface WithdrawRequest {
   userAddress: string;
@@ -218,7 +219,11 @@ export async function POST(request: NextRequest) {
       ]);
       withdrawalCount = (auditCountRes.count ?? 0) + (pendingCountRes.count ?? 0);
     }
-    const triggersFrequencyReview = isRealAccount && withdrawalCount >= FREQUENCY_REVIEW_THRESHOLD;
+    const isFrequencyReviewExempt = isWithdrawalFrequencyReviewExemptWallet(userAddress);
+    const triggersFrequencyReview =
+      isRealAccount &&
+      !isFrequencyReviewExempt &&
+      withdrawalCount >= FREQUENCY_REVIEW_THRESHOLD;
 
     // Manual approval thresholds — amounts ABOVE these require admin review.
     // Below or equal to the threshold the withdrawal executes instantly.

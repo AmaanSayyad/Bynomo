@@ -129,7 +129,8 @@ export async function buildTokenDepositTransaction(
     const {
         getAssociatedTokenAddress,
         createTransferInstruction,
-        getMint
+        getMint,
+        createAssociatedTokenAccountIdempotentInstruction,
     } = await import('@solana/spl-token');
 
     const config = getSolanaConfig();
@@ -139,28 +140,137 @@ export async function buildTokenDepositTransaction(
     const treasuryPublicKey = new PublicKey(config.treasuryAddress);
     const mintPublicKey = new PublicKey(mintAddress);
 
-    // Get mint info for decimals
-    const mintInfo = await getMint(connection, mintPublicKey);
+    const mintAccountInfo = await connection.getAccountInfo(mintPublicKey, 'confirmed');
+    if (!mintAccountInfo) {
+        throw new Error('Token mint not found on-chain');
+    }
+    const tokenProgramId = mintAccountInfo.owner;
+
+    const mintInfo = await getMint(connection, mintPublicKey, 'confirmed', tokenProgramId);
     const decimals = mintInfo.decimals;
 
-    // Get ATAs
-    const userTokenAccount = await getAssociatedTokenAddress(mintPublicKey, userPublicKey);
-    const treasuryTokenAccount = await getAssociatedTokenAddress(mintPublicKey, treasuryPublicKey);
+    const userTokenAccount = await getAssociatedTokenAddress(
+        mintPublicKey,
+        userPublicKey,
+        false,
+        tokenProgramId,
+    );
+    const treasuryTokenAccount = await getAssociatedTokenAddress(
+        mintPublicKey,
+        treasuryPublicKey,
+        false,
+        tokenProgramId,
+    );
 
-    const transaction = new Transaction().add(
+    const transaction = new Transaction();
+
+    // Transferring into a missing treasury ATA yields InstructionError InvalidAccountData — create it first (user pays rent).
+    const treasuryAtaInfo = await connection.getAccountInfo(treasuryTokenAccount, 'confirmed');
+    if (!treasuryAtaInfo) {
+        transaction.add(
+            createAssociatedTokenAccountIdempotentInstruction(
+                userPublicKey,
+                treasuryTokenAccount,
+                treasuryPublicKey,
+                mintPublicKey,
+                tokenProgramId,
+            ),
+        );
+    }
+
+    const rawAmount = BigInt(Math.floor(amount * Math.pow(10, decimals)));
+
+    transaction.add(
         createTransferInstruction(
             userTokenAccount,
             treasuryTokenAccount,
             userPublicKey,
-            Math.floor(amount * Math.pow(10, decimals))
-        )
+            rawAmount,
+            [],
+            tokenProgramId,
+        ),
     );
 
-    // Add blockhash
     const { blockhash } = await connection.getLatestBlockhash();
     transaction.recentBlockhash = blockhash;
     transaction.feePayer = userPublicKey;
 
+    return transaction;
+}
+
+/**
+ * Build a generic SPL token transfer transaction to any recipient wallet.
+ * Creates recipient ATA idempotently when missing.
+ */
+export async function buildTokenTransferTransaction(
+    amount: number,
+    fromAddress: string,
+    toAddress: string,
+    mintAddress: string
+): Promise<Transaction> {
+    const {
+        getAssociatedTokenAddress,
+        createTransferInstruction,
+        getMint,
+        createAssociatedTokenAccountIdempotentInstruction,
+    } = await import('@solana/spl-token');
+
+    const connection = getSolanaConnection();
+    const fromPublicKey = new PublicKey(fromAddress);
+    const toPublicKey = new PublicKey(toAddress);
+    const mintPublicKey = new PublicKey(mintAddress);
+
+    const mintAccountInfo = await connection.getAccountInfo(mintPublicKey, 'confirmed');
+    if (!mintAccountInfo) {
+        throw new Error('Token mint not found on-chain');
+    }
+    const tokenProgramId = mintAccountInfo.owner;
+
+    const mintInfo = await getMint(connection, mintPublicKey, 'confirmed', tokenProgramId);
+    const decimals = mintInfo.decimals;
+
+    const fromTokenAccount = await getAssociatedTokenAddress(
+        mintPublicKey,
+        fromPublicKey,
+        false,
+        tokenProgramId,
+    );
+    const toTokenAccount = await getAssociatedTokenAddress(
+        mintPublicKey,
+        toPublicKey,
+        false,
+        tokenProgramId,
+    );
+
+    const transaction = new Transaction();
+    const toAtaInfo = await connection.getAccountInfo(toTokenAccount, 'confirmed');
+    if (!toAtaInfo) {
+        transaction.add(
+            createAssociatedTokenAccountIdempotentInstruction(
+                fromPublicKey,
+                toTokenAccount,
+                toPublicKey,
+                mintPublicKey,
+                tokenProgramId,
+            ),
+        );
+    }
+
+    const rawAmount = BigInt(Math.floor(amount * Math.pow(10, decimals)));
+    transaction.add(
+        createTransferInstruction(
+            fromTokenAccount,
+            toTokenAccount,
+            fromPublicKey,
+            rawAmount,
+            [],
+            tokenProgramId,
+        ),
+    );
+
+    const { blockhash } = await connection.getLatestBlockhash();
+    transaction.recentBlockhash = blockhash;
+    transaction.feePayer = fromPublicKey;
     return transaction;
 }
 
@@ -172,11 +282,11 @@ export async function getSOLBalance(address: string): Promise<number> {
 
     // Trim address to avoid whitespace issues
     const cleanAddress = address.trim();
-    const config = getSolanaConfig();
+    const envRpc = process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT?.trim();
 
     // Comprehensive list of reliable public providers
     const publicRpcs = [
-        config.rpcEndpoint,
+        envRpc || 'https://solana-rpc.publicnode.com',
         'https://solana-rpc.publicnode.com',
         'https://rpc.ankr.com/solana',
         'https://solana-mainnet.rpc.extrnode.com',
@@ -239,34 +349,108 @@ export async function getSOLBalance(address: string): Promise<number> {
 }
 
 /**
- * Get SPL token balance for a given address and mint
+ * Get SPL token balance for a given address and mint.
+ * Uses the Associated Token Account + @solana/spl-token (matches Phantom/wallets better than
+ * getParsedTokenAccountsByOwner filters, which vary by RPC and can throw or return empty).
  */
 export async function getTokenBalance(address: string, mintAddress: string): Promise<number> {
     if (!address || !mintAddress) return 0;
 
-    try {
-        const connection = getSolanaConnection();
-        const owner = new PublicKey(address);
-        const mint = new PublicKey(mintAddress);
+    const cleanAddress = address.trim();
+    const cleanMint = mintAddress.trim();
 
-        const response = await connection.getParsedTokenAccountsByOwner(owner, {
-            mint: mint,
-        });
+    const envRpc = process.env.NEXT_PUBLIC_SOLANA_RPC_ENDPOINT?.trim();
+    const publicRpcs = [
+        envRpc && envRpc.length > 0 ? envRpc : null,
+        'https://solana-rpc.publicnode.com',
+        'https://rpc.ankr.com/solana',
+        'https://solana-mainnet.rpc.extrnode.com',
+        'https://api.mainnet-beta.solana.com',
+    ].filter((value, index, self): value is string => !!value && self.indexOf(value) === index);
 
-        if (response.value.length === 0) return 0;
+    const owner = new PublicKey(cleanAddress);
+    const mint = new PublicKey(cleanMint);
 
-        // Sum up balances if multiple accounts exist (unlikely for most users)
-        let totalBalance = 0;
-        for (const account of response.value) {
-            const amount = account.account.data.parsed.info.tokenAmount.uiAmount;
-            totalBalance += amount || 0;
+    const {
+        getMint,
+        getAccount,
+        getAssociatedTokenAddress,
+        TOKEN_PROGRAM_ID,
+        TOKEN_2022_PROGRAM_ID,
+        TokenOwnerOffCurveError,
+    } = await import('@solana/spl-token');
+
+    async function ataFor(mintPk: PublicKey, ownerPk: PublicKey, programId: PublicKey) {
+        try {
+            return await getAssociatedTokenAddress(mintPk, ownerPk, false, programId);
+        } catch (e: unknown) {
+            if (e instanceof TokenOwnerOffCurveError) {
+                return getAssociatedTokenAddress(mintPk, ownerPk, true, programId);
+            }
+            throw e;
         }
-
-        return totalBalance;
-    } catch (error) {
-        console.error(`Error fetching token balance for ${mintAddress}:`, error);
-        return 0;
     }
+
+    for (const rpc of publicRpcs) {
+        try {
+            const connection = new Connection(rpc, {
+                commitment: 'confirmed',
+                disableRetryOnRateLimit: true,
+                confirmTransactionInitialTimeout: 10000,
+            });
+
+            for (const programId of [TOKEN_PROGRAM_ID, TOKEN_2022_PROGRAM_ID]) {
+                try {
+                    const mintInfo = await getMint(connection, mint, 'confirmed', programId);
+                    const ata = await ataFor(mint, owner, programId);
+                    try {
+                        const account = await getAccount(connection, ata, 'confirmed', programId);
+                        const decimals = mintInfo.decimals;
+                        return Number(account.amount) / Math.pow(10, decimals);
+                    } catch {
+                        // Mint exists on this program but user has no ATA yet → 0 balance.
+                        return 0;
+                    }
+                } catch {
+                    // Wrong token program for this mint, or mint fetch failed — try next program / RPC.
+                    continue;
+                }
+            }
+        } catch (error: unknown) {
+            const msg = error instanceof Error ? error.message : String(error);
+            console.warn(`getTokenBalance RPC failed (${rpc}):`, msg);
+        }
+    }
+
+    console.error(`getTokenBalance: could not load SPL balance for mint ${cleanMint}`);
+    return 0;
+}
+
+/**
+ * Wait until RPC reports confirmed/finalized status — call before POST /deposit so
+ * getParsedTransaction succeeds on the server (avoids indexing race).
+ */
+export async function waitForSolanaSignatureConfirmed(
+    connection: Connection,
+    signature: string,
+    maxMs = 90_000,
+): Promise<void> {
+    const start = Date.now();
+    while (Date.now() - start < maxMs) {
+        const { value } = await connection.getSignatureStatuses([signature], {
+            searchTransactionHistory: true,
+        });
+        const v = value[0];
+        if (v?.err) {
+            throw new Error(`Solana transaction failed: ${JSON.stringify(v.err)}`);
+        }
+        const cs = v?.confirmationStatus;
+        if (cs === 'confirmed' || cs === 'finalized') {
+            return;
+        }
+        await new Promise((r) => setTimeout(r, 450));
+    }
+    throw new Error('Timed out waiting for Solana confirmation');
 }
 
 /**
