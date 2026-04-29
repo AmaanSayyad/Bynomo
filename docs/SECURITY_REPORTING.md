@@ -24,7 +24,7 @@ Please provide as much of the following as you can:
 
 ## Where to report
 
-- Email: `bynomo.fun@gmail.com`
+- Email: `partnerships@bynomo.fun`
 - If GitHub security features are enabled for this repo, you can also use the platform’s security reporting flow.
 
 ## What we will do after receiving a report
