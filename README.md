@@ -10,7 +10,7 @@
 | **X / Twitter** | https://x.com/bynomofun |
 | **Telegram** | https://t.me/bynomo |
 | **Discord** | https://discord.gg/5MAHQpWZ7b |
-| **Contact** | bynomo.fun@gmail.com |
+| **Contact** | partnerships@bynomo.fun |
 
 ---
 
@@ -924,7 +924,7 @@ Bynomo sits at the intersection of three large markets — binary options, predi
 - Admin routes protected by `requireAdminAuth` middleware
 - CSP + security headers set in `next.config.ts`
 
-To report a security issue: see `docs/SECURITY_REPORTING.md` or email bynomo.fun@gmail.com
+To report a security issue: see `docs/SECURITY_REPORTING.md` or email partnerships@bynomo.fun
 
 ---
 
@@ -1175,7 +1175,7 @@ sequenceDiagram
 
 ### Contact
 
-- **Email:** bynomo.fun@gmail.com
+- **Email:** partnerships@bynomo.fun
 - **Live demo:** [bynomo.fun/trade](https://bynomo.fun/trade)
 - **Deck / data room:** [View Pitch Deck](https://docs.google.com/presentation/d/1kDVnUCeJ-LZ3dfpo_YsSqen6qSzlgzHFWFk79Eodj9A/edit?usp=sharing)
 

@@ -1,7 +1,7 @@
 # Bynomo — Investor Pitch Deck
 
 > **The first binary options trading dapp on-chain.**
-> Live at [bynomo.fun](https://bynomo.fun) · Contact: bynomo.fun@gmail.com
+> Live at [bynomo.fun](https://bynomo.fun) · Contact: partnerships@bynomo.fun
 
 ---
 
@@ -14,7 +14,7 @@ The first on-chain binary options trading platform.
 
 Fast binary rounds · Pyth oracle pricing · 12 blockchains · Transparent settlement
 
-bynomo.fun  ·  bynomo.fun@gmail.com  ·  @bynomofun
+bynomo.fun  ·  partnerships@bynomo.fun  ·  @bynomofun
 ```
 
 ---
@@ -408,7 +408,7 @@ Bynomo is the only production product offering oracle-settled binary rounds at *
 | **X / Twitter** | [@bynomofun](https://x.com/bynomofun) |
 | **Telegram** | [t.me/bynomo](https://t.me/bynomo) |
 | **Discord** | [discord.gg/5MAHQpWZ7b](https://discord.gg/5MAHQpWZ7b) |
-| **Email** | bynomo.fun@gmail.com |
+| **Email** | partnerships@bynomo.fun |
 | **Deck / data room** | [View Pitch Deck](https://docs.google.com/presentation/d/1kDVnUCeJ-LZ3dfpo_YsSqen6qSzlgzHFWFk79Eodj9A/edit?usp=sharing) |
 
 ---
