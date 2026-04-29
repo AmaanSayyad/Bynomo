@@ -102,19 +102,18 @@ export default function StakingPage() {
       if (!poolsRes.ok) throw new Error(poolsJson.error || 'Failed to load staking pools');
       setPools((poolsJson.pools || []) as Pool[]);
 
+      const { getTokenBalance } = await import('@/lib/solana/client');
+      const vaultBal = STAKING_VAULT ? await getTokenBalance(STAKING_VAULT, BYNOMO_MINT) : 0;
+      setVaultBynomoBalance(Number(vaultBal || 0));
+
       if (address) {
         const posRes = await fetch(`/api/staking/positions?userAddress=${encodeURIComponent(address)}`);
         const posJson = await posRes.json();
 
         if (!posRes.ok) throw new Error(posJson.error || 'Failed to load staking positions');
 
-        const { getTokenBalance } = await import('@/lib/solana/client');
-        const [walletBal, vaultBal] = await Promise.all([
-          getTokenBalance(address, BYNOMO_MINT),
-          STAKING_VAULT ? getTokenBalance(STAKING_VAULT, BYNOMO_MINT) : Promise.resolve(0),
-        ]);
+        const walletBal = await getTokenBalance(address, BYNOMO_MINT);
         setBynomoBalance(Number(walletBal || 0));
-        setVaultBynomoBalance(Number(vaultBal || 0));
         setPositions((posJson.positions || []) as Position[]);
 
         const prRes = await fetch(
@@ -129,7 +128,6 @@ export default function StakingPage() {
         }
       } else {
         setBynomoBalance(0);
-        setVaultBynomoBalance(0);
         setPositions([]);
         setPayoutRequests([]);
       }
