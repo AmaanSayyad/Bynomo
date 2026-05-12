@@ -44,6 +44,13 @@ jobs:
             fi
           done
 
+          # GitHub merge commits / "Squash and merge" often use *@users.noreply.github.com as author.
+          # Pusher is already restricted below; this avoids blocking legitimate merges to main.
+          if [ "$AUTHORIZED" = "false" ] && [[ "$AUTHOR_EMAIL" == *"@users.noreply.github.com" ]]; then
+            AUTHORIZED=true
+            echo "Author is GitHub noreply (merge/UI commit); treating as authorized when pusher matches."
+          fi
+
           if [ "$PUSHER" != "$ALLOWED_GITHUB_USER" ]; then
             echo "::error::Deployment BLOCKED — push actor '$PUSHER' is not '$ALLOWED_GITHUB_USER'."
             echo "authorized=false" >> $GITHUB_OUTPUT
