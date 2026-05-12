@@ -4,7 +4,7 @@ import MermaidDiagram from '@/components/ui/MermaidDiagram';
 import Link from 'next/link';
 
 // NOTE: metadata moved to runtime UI in client mode.
-const DEMO_VIDEO_EMBED = 'https://www.youtube.com/embed/_YWvJihlqfE?si=j6r-dwwiH3V49_ws';
+const DEMO_VIDEO_EMBED = 'https://www.youtube.com/embed/SU5Eed3pCOw?si=Q-MjKKang33iI26P';
 const PITCH_DECK_EMBED =
   'https://docs.google.com/presentation/d/1kDVnUCeJ-LZ3dfpo_YsSqen6qSzlgzHFWFk79Eodj9A/embed?start=false&loop=false&delayms=3000';
 const PROJECT_GITHUB = 'https://github.com/AmaanSayyad/Bynomo';

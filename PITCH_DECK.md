@@ -404,7 +404,7 @@ Bynomo is the only production product offering oracle-settled binary rounds at *
 |---|---|
 | **Product** | [bynomo.fun](https://bynomo.fun) |
 | **Live trade** | [bynomo.fun/trade](https://bynomo.fun/trade) |
-| **Demo video** | [youtu.be/_YWvJihlqfE](https://youtu.be/_YWvJihlqfE) |
+| **Demo video** | [youtu.be/SU5Eed3pCOw](https://youtu.be/SU5Eed3pCOw) |
 | **X / Twitter** | [@bynomofun](https://x.com/bynomofun) |
 | **Telegram** | [t.me/bynomo](https://t.me/bynomo) |
 | **Discord** | [discord.gg/5MAHQpWZ7b](https://discord.gg/5MAHQpWZ7b) |
