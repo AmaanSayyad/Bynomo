@@ -1,6 +1,11 @@
-name: Deploy to Vercel (owner only)
+# Production deploys: Vercel Git integration (vercel.json has deploymentEnabled: true).
+# This workflow only enforces who may land commits on main — it does not call the Vercel CLI,
+# so you avoid double-deploying on every push.
+
+name: Main branch commit policy
 
 on:
+  workflow_dispatch:
   pull_request:
     branches:
       - main
@@ -8,18 +13,18 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   check-author:
-    name: Block unauthorized committers
+    name: Verify authorized committer
     runs-on: ubuntu-latest
-    outputs:
-      authorized: ${{ steps.check.outputs.authorized }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Check commit author
-        id: check
         run: |
           AUTHOR_EMAIL="$(git log -1 --format='%ae')"
           AUTHOR_NAME="$(git log -1 --format='%an')"
@@ -29,7 +34,6 @@ jobs:
           echo "Pushed by: $PUSHER"
 
           # ── Authorized committers ─────────────────────────────────────────
-          # Add your own email(s) here. Anyone NOT in this list will be blocked.
           ALLOWED_EMAILS=(
             "amaansayyad@yahoo.com"
           )
@@ -44,45 +48,20 @@ jobs:
             fi
           done
 
-          # GitHub merge commits / "Squash and merge" often use *@users.noreply.github.com as author.
-          # Pusher is already restricted below; this avoids blocking legitimate merges to main.
+          # GitHub merge / squash UI commits often use *@users.noreply.github.com
           if [ "$AUTHORIZED" = "false" ] && [[ "$AUTHOR_EMAIL" == *"@users.noreply.github.com" ]]; then
             AUTHORIZED=true
-            echo "Author is GitHub noreply (merge/UI commit); treating as authorized when pusher matches."
+            echo "Author is GitHub noreply (merge/UI commit); ok when pusher matches."
           fi
 
           if [ "$PUSHER" != "$ALLOWED_GITHUB_USER" ]; then
-            echo "::error::Deployment BLOCKED — push actor '$PUSHER' is not '$ALLOWED_GITHUB_USER'."
-            echo "authorized=false" >> $GITHUB_OUTPUT
+            echo "::error::BLOCKED — push actor '$PUSHER' is not '$ALLOWED_GITHUB_USER'."
             exit 1
           fi
 
           if [ "$AUTHORIZED" = "false" ]; then
-            echo "::error::Deployment BLOCKED — commit author '$AUTHOR_EMAIL' is not on the authorized list."
-            echo "authorized=false" >> $GITHUB_OUTPUT
+            echo "::error::BLOCKED — commit author '$AUTHOR_EMAIL' is not on the authorized list."
             exit 1
           fi
 
-          echo "authorized=true" >> $GITHUB_OUTPUT
-          echo "✅ Authorized committer. Proceeding with deployment."
-
-  deploy:
-    name: Deploy to Vercel Production
-    needs: check-author
-    if: github.event_name == 'push' && needs.check-author.outputs.authorized == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
-      - name: Pull Vercel environment
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Build
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-
-      - name: Deploy to production
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+          echo "✅ Authorized committer."
