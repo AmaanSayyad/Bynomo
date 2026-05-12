@@ -6,7 +6,7 @@
 | | |
 |---|---|
 | **Live** | https://bynomo.fun/ |
-| **Demo video** | https://youtu.be/t76ltZH9XSU |
+| **Demo video** | https://youtu.be/SU5Eed3pCOw |
 | **X / Twitter** | https://x.com/bynomofun |
 | **Telegram** | https://t.me/bynomo |
 | **Discord** | https://discord.gg/5MAHQpWZ7b |

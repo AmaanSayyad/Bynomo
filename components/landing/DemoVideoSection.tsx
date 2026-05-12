@@ -4,7 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 
 const DEMO_EMBED_SRC =
-  'https://www.youtube.com/embed/_YWvJihlqfE?si=j6r-dwwiH3V49_ws';
+  'https://www.youtube.com/embed/SU5Eed3pCOw?si=Q-MjKKang33iI26P';
 
 export default function DemoVideoSection() {
   return (
