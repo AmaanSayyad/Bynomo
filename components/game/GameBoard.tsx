@@ -118,7 +118,14 @@ export const GameBoard: React.FC = () => {
           return;
         }
 
-        // For other networks use the unified store value.
+        if (network === 'ZG') {
+          const { getZGBalance } = await import('@/lib/zg/client');
+          const bal = await getZGBalance(address);
+          if (!cancelled) setWalletPanelBalance(bal);
+          return;
+        }
+
+        // For other networks use the unified store value (keep in sync when it updates).
         if (!cancelled) setWalletPanelBalance(walletBalance);
       } catch (e) {
         // Never fall back to global walletBalance for Solana+BYNOMO — store may still hold SOL.
@@ -126,6 +133,8 @@ export const GameBoard: React.FC = () => {
           const sym = selectedCurrency || 'SOL';
           if (network === 'SOL' && sym === 'BYNOMO') {
             setWalletPanelBalance(0);
+          } else if (network === 'ZG') {
+            setWalletPanelBalance(null);
           } else {
             setWalletPanelBalance(walletBalance);
           }
@@ -137,7 +146,7 @@ export const GameBoard: React.FC = () => {
     return () => {
       cancelled = true;
     };
-  }, [isConnected, address, network, selectedCurrency]);
+  }, [isConnected, address, network, selectedCurrency, walletBalance]);
 
   // Unified balance and currency
   const currencySymbol = network === 'SOL' ? (selectedCurrency || 'SOL') : network === 'SUI' ? (selectedCurrency === 'USDC' ? 'USDC' : 'SUI') : network === 'XLM' ? 'XLM' : network === 'XTZ' ? 'XTZ' : network === 'NEAR' ? 'NEAR' : network === 'STRK' ? 'STRK' : network === 'PUSH' ? 'PC' : network === 'SOMNIA' ? 'STT' : network === 'OCT' ? 'OCT' : network === 'ZG' ? '0G' : network === 'INIT' ? 'INIT' : network === 'APT' ? 'APT' : 'BNB';

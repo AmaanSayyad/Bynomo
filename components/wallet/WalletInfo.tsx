@@ -8,13 +8,13 @@ export const WalletInfo: React.FC = () => {
   // Polling for balance updates
   useEffect(() => {
     if (isConnected && address) {
-      refreshWalletBalance();
+      void refreshWalletBalance();
       const interval = setInterval(() => {
-        refreshWalletBalance();
+        void refreshWalletBalance();
       }, 10000); // Poll every 10s
       return () => clearInterval(interval);
     }
-  }, [isConnected, address, network, selectedCurrency]);
+  }, [isConnected, address, network, selectedCurrency, refreshWalletBalance]);
 
   if (!isConnected || !address) {
     return null;

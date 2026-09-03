@@ -274,6 +274,9 @@ function WalletSync() {
           setNetwork('ZG');
           refreshWalletBalance();
           fetchProfile(wagmiAddress);
+        } else {
+          // Already synced — still refresh on-chain wallet balance (panel was stuck at 0).
+          refreshWalletBalance();
         }
         queueMicrotask(() => fetchBalance(wagmiAddress));
         return;
