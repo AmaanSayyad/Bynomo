@@ -370,9 +370,13 @@ export const GameBoard: React.FC = () => {
         const evmFeeWallet = process.env.NEXT_PUBLIC_PLATFORM_FEE_WALLET_EVM;
         if (!evmFeeWallet) throw new Error('EVM fee collector wallet not configured');
         toast.info(`Confirming ${blitzEntryFee} 0G Blitz Entry...`);
+        const { getZGEip1559Fees } = await import('@/lib/zg/fees');
+        const zgFees = await getZGEip1559Fees();
         const hash = await walletClient.sendTransaction({
           to: getAddress(evmFeeWallet as string),
           value: parseEther(blitzEntryFee.toString()),
+          maxFeePerGas: zgFees.maxFeePerGas,
+          maxPriorityFeePerGas: zgFees.maxPriorityFeePerGas,
         });
         toast.info('Waiting for on-chain confirmation...');
         const { waitForTransactionReceipt } = await import('@wagmi/core');

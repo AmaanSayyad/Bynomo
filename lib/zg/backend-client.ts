@@ -42,7 +42,9 @@ export async function transferZGFromTreasury(
     const amountStr = amountZG.toFixed(18).replace(/\.?0+$/, '');
     const amountWei = ethers.parseEther(amountStr);
 
-    const tx = await treasury.withdrawTo(toAddress, amountWei);
+    const { getZGEip1559Fees } = await import('./fees');
+    const zgFees = await getZGEip1559Fees();
+    const tx = await treasury.withdrawTo(toAddress, amountWei, zgFees);
     await tx.wait();
 
     return tx.hash;
