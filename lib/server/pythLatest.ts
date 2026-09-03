@@ -1,7 +1,14 @@
 import { PRICE_FEED_IDS } from '@/lib/utils/priceFeed';
+import { fetchPublicMarketPrices } from '@/lib/server/publicMarketPrices';
 
-const HERMES_ENDPOINT = 'https://hermes.pyth.network';
+const HERMES_ENDPOINTS = [
+  process.env.PYTH_HERMES_URL?.trim() || 'https://pyth.dourolabs.app/hermes',
+  'https://hermes.pyth.network',
+];
 const PYTH_PRO_REST_ENDPOINT = 'https://pyth-lazer.dourolabs.app/v1/latest_price';
+const HERMES_CHUNK_SIZE = 20;
+const SNAPSHOT_TTL_MS = 750;
+const HERMES_AUTH_COOLDOWN_MS = 60_000;
 
 const PRO_SYMBOL_BY_ASSET: Partial<Record<keyof typeof PRICE_FEED_IDS, string>> = {
   BTC: 'Crypto.BTC/USD',
@@ -13,6 +20,20 @@ const PRO_SYMBOL_BY_ASSET: Partial<Record<keyof typeof PRICE_FEED_IDS, string>> 
   XTZ: 'Crypto.XTZ/USD',
   NEAR: 'Crypto.NEAR/USD',
 };
+
+let snapshotCache: { at: number; prices: Partial<Record<string, number>> } = { at: 0, prices: {} };
+let hermesAuthBlockedUntil = 0;
+let lastHermesWarnAt = 0;
+
+/** Only a Pyth Terminal Hermes key — Lazer/Pro keys are not entitled for crypto spots. */
+function hermesApiKey(): string {
+  return process.env.PYTH_API_KEY?.trim() || process.env.PYTH_HERMES_API_KEY?.trim() || '';
+}
+
+function hermesHeaders(): Record<string, string> {
+  const key = hermesApiKey();
+  return key ? { Authorization: `Bearer ${key}` } : {};
+}
 
 function normalizeFeedId(id: string | undefined): string {
   if (!id || typeof id !== 'string') return '';
@@ -28,6 +49,13 @@ function parsePriceFromFeed(feed: any): number | null {
     return Number(feed.price.price) * 10 ** Number(feed.price.expo);
   }
   return null;
+}
+
+function warnHermes(message: string): void {
+  const now = Date.now();
+  if (now - lastHermesWarnAt < 30_000) return;
+  lastHermesWarnAt = now;
+  console.warn(`[pyth] ${message}`);
 }
 
 async function fetchViaPythPro(assets: string[]): Promise<Partial<Record<string, number>>> {
@@ -87,47 +115,107 @@ async function fetchViaPythPro(assets: string[]): Promise<Partial<Record<string,
   }
 }
 
+async function fetchHermesChunk(
+  endpoint: string,
+  chunk: ReadonlyArray<readonly [string, string]>,
+): Promise<Partial<Record<string, number>>> {
+  const ids = chunk.map(([, id]) => (id.startsWith('0x') ? id : `0x${id}`));
+  const queryString = ids.map((id) => `ids%5B%5D=${encodeURIComponent(id)}`).join('&');
+  const response = await fetch(`${endpoint}/v2/updates/price/latest?${queryString}`, {
+    cache: 'no-store',
+    signal: AbortSignal.timeout(8_000),
+    headers: hermesHeaders(),
+  });
+
+  if (response.status === 401 || response.status === 403) {
+    hermesAuthBlockedUntil = Date.now() + HERMES_AUTH_COOLDOWN_MS;
+    const body = await response.text().catch(() => '');
+    warnHermes(
+      `Hermes ${response.status} on ${endpoint}. ` +
+        (response.status === 401
+          ? 'Set PYTH_API_KEY from Pyth Terminal (Hermes requires auth after Aug 26 2026).'
+          : `Key is not entitled for these feeds. ${body.slice(0, 160)}`),
+    );
+    return {};
+  }
+  if (!response.ok) return {};
+
+  const data = await response.json();
+  const assetByFeedId = new Map<string, string>();
+  chunk.forEach(([asset, id]) => assetByFeedId.set(normalizeFeedId(id), asset));
+
+  const out: Partial<Record<string, number>> = {};
+  const parsed = Array.isArray(data?.parsed) ? data.parsed : [];
+  parsed.forEach((feed: any) => {
+    const asset = assetByFeedId.get(normalizeFeedId(feed?.id));
+    if (!asset) return;
+    const price = parsePriceFromFeed(feed);
+    if (price !== null && Number.isFinite(price) && price > 0) out[asset] = price;
+  });
+  return out;
+}
+
 async function fetchViaHermes(assets: string[]): Promise<Partial<Record<string, number>>> {
+  if (Date.now() < hermesAuthBlockedUntil) return {};
+
   const requested = assets
     .map((asset) => [asset, (PRICE_FEED_IDS as Record<string, string>)[asset]] as const)
     .filter(([, id]) => typeof id === 'string');
 
   if (requested.length === 0) return {};
 
-  const ids = requested.map(([, id]) => (id.startsWith('0x') ? id : `0x${id}`));
-  const queryString = ids.map((id) => `ids%5B%5D=${encodeURIComponent(id)}`).join('&');
-  try {
-    const response = await fetch(`${HERMES_ENDPOINT}/v2/updates/price/latest?${queryString}`, {
-      cache: 'no-store',
-      signal: AbortSignal.timeout(8_000),
-    });
-    if (!response.ok) return {};
-    const data = await response.json();
-
-    const assetByFeedId = new Map<string, string>();
-    requested.forEach(([asset, id]) => assetByFeedId.set(normalizeFeedId(id), asset));
-
-    const out: Partial<Record<string, number>> = {};
-    const parsed = Array.isArray(data?.parsed) ? data.parsed : [];
-    parsed.forEach((feed: any) => {
-      const asset = assetByFeedId.get(normalizeFeedId(feed?.id));
-      if (!asset) return;
-      const price = parsePriceFromFeed(feed);
-      if (price !== null && Number.isFinite(price) && price > 0) out[asset] = price;
-    });
-    return out;
-  } catch {
-    return {};
+  const out: Partial<Record<string, number>> = {};
+  for (const endpoint of HERMES_ENDPOINTS) {
+    if (Date.now() < hermesAuthBlockedUntil) break;
+    for (let i = 0; i < requested.length; i += HERMES_CHUNK_SIZE) {
+      if (Date.now() < hermesAuthBlockedUntil) break;
+      const chunk = requested.slice(i, i + HERMES_CHUNK_SIZE);
+      try {
+        const part = await fetchHermesChunk(endpoint, chunk);
+        Object.assign(out, part);
+      } catch {
+        // try next chunk / endpoint
+      }
+    }
+    if (Object.keys(out).length > 0) return out;
   }
+  return out;
 }
 
 export async function fetchPythLatestPrices(assets: string[]): Promise<Partial<Record<string, number>>> {
   const uniqueAssets = Array.from(new Set(assets.filter(Boolean)));
-  const hermesPrices = await fetchViaHermes(uniqueAssets);
-  const missing = uniqueAssets.filter((asset) => !Number.isFinite(hermesPrices[asset] as number));
-  if (missing.length === 0) return hermesPrices;
+  if (uniqueAssets.length === 0) return {};
 
-  // Optional Pro fallback (disabled by default until full feed-symbol mapping is verified).
-  const proFallback = await fetchViaPythPro(missing);
-  return { ...hermesPrices, ...proFallback };
+  const now = Date.now();
+  const cachedHit = uniqueAssets.every((asset) => Number.isFinite(snapshotCache.prices[asset] as number));
+  if (cachedHit && now - snapshotCache.at < SNAPSHOT_TTL_MS) {
+    const slice: Partial<Record<string, number>> = {};
+    for (const asset of uniqueAssets) slice[asset] = snapshotCache.prices[asset];
+    return slice;
+  }
+
+  // Free Pyth plans have no API access after the Aug 2026 upgrade.
+  // Default to public venues unless a dedicated Hermes key is configured.
+  let merged: Partial<Record<string, number>> = {};
+  if (hermesApiKey()) {
+    merged = await fetchViaHermes(uniqueAssets);
+  }
+
+  let missing = uniqueAssets.filter((asset) => !Number.isFinite(merged[asset] as number));
+  if (missing.length > 0) {
+    const publicPrices = await fetchPublicMarketPrices(missing);
+    merged = { ...merged, ...publicPrices };
+    missing = uniqueAssets.filter((asset) => !Number.isFinite(merged[asset] as number));
+  }
+
+  if (missing.length > 0) {
+    const proFallback = await fetchViaPythPro(missing);
+    merged = { ...merged, ...proFallback };
+  }
+
+  if (Object.keys(merged).length > 0) {
+    snapshotCache = { at: Date.now(), prices: { ...snapshotCache.prices, ...merged } };
+  }
+
+  return merged;
 }
