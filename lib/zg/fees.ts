@@ -7,9 +7,9 @@
 import { getRpcUrl } from './config';
 
 /** 0G mempool floor from RPC 0x4115 */
-export const ZG_MIN_PRIORITY_FEE_WEI = 2_000_000_000n;
+export const ZG_MIN_PRIORITY_FEE_WEI = BigInt(2_000_000_000);
 /** Current public RPC typically quotes ~4 gwei */
-const ZG_FALLBACK_PRIORITY_FEE_WEI = 4_000_000_000n;
+const ZG_FALLBACK_PRIORITY_FEE_WEI = BigInt(4_000_000_000);
 
 export type ZGEip1559Fees = {
   maxFeePerGas: bigint;
@@ -42,7 +42,7 @@ async function rpcCall(method: string, params: unknown[] = []): Promise<unknown>
 export async function getZGEip1559Fees(): Promise<ZGEip1559Fees> {
   let tip = ZG_FALLBACK_PRIORITY_FEE_WEI;
   let gasPrice = ZG_FALLBACK_PRIORITY_FEE_WEI;
-  let baseFee = 1n;
+  let baseFee = BigInt(1);
 
   try {
     const [priorityRaw, gasPriceRaw, block] = await Promise.all([
@@ -53,15 +53,15 @@ export async function getZGEip1559Fees(): Promise<ZGEip1559Fees> {
     const rpcTip = hexToBigInt(priorityRaw);
     const rpcGas = hexToBigInt(gasPriceRaw);
     const rpcBase = hexToBigInt((block as { baseFeePerGas?: string } | null)?.baseFeePerGas);
-    if (rpcTip && rpcTip > 0n) tip = rpcTip;
-    if (rpcGas && rpcGas > 0n) gasPrice = rpcGas;
-    if (rpcBase && rpcBase > 0n) baseFee = rpcBase;
+    if (rpcTip && rpcTip > BigInt(0)) tip = rpcTip;
+    if (rpcGas && rpcGas > BigInt(0)) gasPrice = rpcGas;
+    if (rpcBase && rpcBase > BigInt(0)) baseFee = rpcBase;
   } catch {
     // use fallbacks
   }
 
   if (tip < ZG_MIN_PRIORITY_FEE_WEI) tip = ZG_MIN_PRIORITY_FEE_WEI;
-  const maxFeePerGas = gasPrice > tip + baseFee ? gasPrice : tip + baseFee * 2n;
+  const maxFeePerGas = gasPrice > tip + baseFee ? gasPrice : tip + baseFee * BigInt(2);
   return {
     maxPriorityFeePerGas: tip,
     maxFeePerGas: maxFeePerGas < tip ? tip : maxFeePerGas,
