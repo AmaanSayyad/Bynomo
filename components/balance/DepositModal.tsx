@@ -354,11 +354,15 @@ export const DepositModal: React.FC<DepositModalProps> = ({
 
         toast.info('Please confirm the transaction in your wallet...');
         const { ethers: ethersLib } = await import('ethers');
+        const { getZGEip1559Fees } = await import('@/lib/zg/fees');
         const provider = new ethersLib.BrowserProvider(connectorProvider);
         const signer = await provider.getSigner();
+        const zgFees = await getZGEip1559Fees();
         const tx = await signer.sendTransaction({
           to: zgConfig.treasuryAddress as string,
           value: ethersLib.parseEther(depositAmount.toString()),
+          maxFeePerGas: zgFees.maxFeePerGas,
+          maxPriorityFeePerGas: zgFees.maxPriorityFeePerGas,
         });
         toast.info('Transaction submitted. Waiting for on-chain confirmation...');
         const receipt = await tx.wait();
@@ -444,7 +448,12 @@ export const DepositModal: React.FC<DepositModalProps> = ({
       onClose();
     } catch (err: any) {
       console.error('Deposit error:', err);
-      const errorMessage = err.message || 'Failed to deposit funds';
+      const raw = String(err?.shortMessage || err?.message || 'Failed to deposit funds');
+      const errorMessage = /gas tip cap|gas price below minimum/i.test(raw)
+        ? '0G network rejected the fee. Retry deposit — we now set the required 2 gwei minimum tip.'
+        : raw.length > 180
+          ? 'Deposit failed. Please retry, or reconnect your wallet and try again.'
+          : raw;
       setError(errorMessage);
       toast.error(errorMessage);
       if (onError) onError(errorMessage);
